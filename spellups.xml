@@ -11,7 +11,7 @@
    save_state="y"
    date_written="2021-12-31 00:00:00"
    requires="4.00"
-   version="0.30"
+   version="0.31"
    >
 
 </plugin>
@@ -213,7 +213,12 @@ require "tprint"
 dofile(GetInfo(60) .. "aardwolf_colors.lua")
 dofile(GetInfo(60).."telnet_options.lua")
 TelnetOptionOn(TELOPT_SPELLUP) -- fiendish recommends this way to enable the spellup tags silently
-TelnetOptionOn(TELOPT_INVMON_TAGS)
+local IAC = 255
+local SB  = 250
+local TELOPT = 102
+local SE  = 240
+local TELOPT_INVMON_TAGS = 20
+local GLOBAL_TAG_MUTE = 50
 
 --[[
 TODO
@@ -299,8 +304,8 @@ function OnPluginEnable ()
 
 	Spellups = {}
 	noAuto = {}
-     Spellups["GL"] = {}
-     Spellups["AS"] = {}
+    Spellups["GL"] = {}
+    Spellups["AS"] = {}
 	Spellups["AF"] = {} --affected by
 	Spellups["NA"] = {} --not affected by
 	Spellups["QU"] = {} --spellup queue
@@ -318,7 +323,7 @@ function OnPluginEnable ()
 	-- the following lines need to be in onpluginenable to recheck stuff and set current state for buildslist
 	
 	charstatus = gmcp("char.status") -- fetch char.status and return it as a Lua table
-     currentState = tonumber(charstatus.state)
+    currentState = tonumber(charstatus.state)
 	
 	Spellups["GL"]["clan"] = gmcp("char.base.clan") -- fetch char.base and return it as a Lua table
 	 
@@ -339,8 +344,8 @@ end
 
 function buildInitial()
 	Spellups["AS"]["spellup"] = {}
-     Spellups["AS"]["other"] = {}
-     Spellups["AS"]["recovery"] = {}
+    Spellups["AS"]["other"] = {}
+    Spellups["AS"]["recovery"] = {}
 	Spellups["AS"]["attack"] = {}
 	Spellups["AS"]["spells"] = {}
 	Spellups["AS"]["skills"] = {}
@@ -380,7 +385,6 @@ function buildInitial()
      ["touchstone"] = 496,
      ["boot"] = 606
      }
-
 end
 
 function checkExist(tbl, idx, val) 
@@ -431,8 +435,9 @@ end
 
 function SendSlistCommand()
 	if (slistCommandSent == false) then
+		SendPkt (string.char (IAC, SB, TELOPT, TELOPT_INVMON_TAGS, 1, IAC, SE))
 		slistCommandSent = true
-          EnableTriggerGroup("slistCapture", true)
+        EnableTriggerGroup("slistCapture", true)
 		EnableTrigger("RecoveriesStart", true)
 		hadarprint("***Getting Skills/Spells","script")
 		SendNoEcho("slist noprompt")
@@ -561,6 +566,7 @@ function affoff(name,line,wc)
 				if sn == 71 or sn == 102 then
 					Spellups["GL"]["sancoff"] = "yes"
 					hadarprint("sancoff = yes","debug")
+					Spellups["QS"][sn] = Spellups["AS"]["list"][sn]["name"]
 				end
 				hadarprint("CS = 8, autoaura = on, sn = 71 or 108 or 180","debug")
 				if Spellups["GL"]["auranumber"] ~= 0 then
@@ -874,7 +880,6 @@ hadarprint("@x086|                           @x208be recast, no argument to see 
 hadarprint("@x086|                           @x208EG. hsp noauto 58                          @x086|@w")
 hadarprint("@x086| @x214hsp noauto clear        @x110- @x214clears your noauto list                    @x086|@w")
 hadarprint("@x086| @x208hsp disable             @x110- @x208Turns the script on or off                 @x086|@w")
-hadarprint("| hsp disable             - Turns the script on or off                 |@w")
 hadarprint("| hsp autoaura <command>  - Has multiple commands, they are:           |@w")
 hadarprint("|                         - On  - enables wearing aura in combat       |@w")
 hadarprint("|                         - Off - diables wearing aura in combat       |@w")
