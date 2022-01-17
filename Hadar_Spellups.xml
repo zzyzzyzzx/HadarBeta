@@ -3,7 +3,7 @@
 
 <muclient>
 <plugin
-   name="HSpellup"
+   name="Hadar_Spellup_Caster"
    author="Hadar, Khadaji"
    id="d2b6d276d6d22cf20d77d46f"
    language="Lua"
@@ -17,9 +17,6 @@
 </plugin>
 
 <!--  Triggers
-{recon}35,741
-{recoff}33
-
 <trigger
    enabled="y"
    match=""
@@ -110,7 +107,7 @@
      name="sfail"
      group="SpellupTags"
      enabled="y"
-     match="^\{sfail\}(?<sn>[0-9]{1,3})\,(?<tg>[0-9]{1,3})\,(?<fl>[0-9]{1,3})\,(?<rc>(-|)[0-9]{1,3})"
+     match="^\{sfail\}(?<sn>(-|)[0-9]{1,3})\,(?<tg>[0-9]{1,3})\,(?<fl>[0-9]{1,3})\,(?<rc>(-|)[0-9]{1,3})"
      regexp="y"
      omit_from_output="y"
      sequence="100"
@@ -157,6 +154,26 @@
      regexp="y"
      omit_from_output="y"
      sequence="100"
+>
+</trigger>
+<trigger
+     name="recon"
+     enabled="y"
+     match="^\{recon\}(?<sn>[0-9]{1,2})\,(?<timer>[0-9]{1,4})$"
+     regexp="y"
+     omit_from_output="y"
+     sequence="100"
+	script="recon"
+>
+</trigger>
+<trigger
+     name="recoff"
+     enabled="y"
+     match="^\{recoff\}(?<sn>[0-9]{1,2})$"
+     regexp="y"
+     omit_from_output="y"
+     sequence="100"
+	script="recoff"
 >
 </trigger>
 
@@ -225,6 +242,9 @@ TODO
 Handle cooldown(recoveries) skills/spells
 handle gaias focus? (cast focus then revenge)
 totem guidance/totem force use same cooldown?
+Scars tells you 'hey man, elemental focus and elemental ward need to be added to the 'castable in combat' list :)'
+
+make recovery message into commwindow/main window (custom message line, will need hadarmagic)
 
 fix the spacing on hsp noauto show
 
@@ -311,6 +331,8 @@ function OnPluginEnable ()
 	Spellups["QU"] = {} --spellup queue
 	Spellups["EX"] = {} --exceptions (combat)
 	Spellups["QS"] = {} --queued spells
+	Spellups["RT"] = {} --recoverys
+	
 	
 	if GetVariable ("pastfirstinstall") == "true" then
 		assert (loadstring (GetVariable ("Spellups") or "")) ()
@@ -318,7 +340,6 @@ function OnPluginEnable ()
           hadarprint("@CLooks like this is your first install, Lets get you setup! @Ghsp@C for help","script")
 		buildInitial()
 	end
-     injectVars()
 	
 	-- the following lines need to be in onpluginenable to recheck stuff and set current state for buildslist
 	
@@ -339,13 +360,14 @@ function OnPluginEnable ()
 		end
 	end
 	
+	injectVars()
 	SendSlistCommand()
 end
 
 function buildInitial()
 	Spellups["AS"]["spellup"] = {}
-    Spellups["AS"]["other"] = {}
-    Spellups["AS"]["recovery"] = {}
+	Spellups["AS"]["other"] = {}
+	Spellups["AS"]["recovery"] = {}
 	Spellups["AS"]["attack"] = {}
 	Spellups["AS"]["spells"] = {}
 	Spellups["AS"]["skills"] = {}
@@ -409,6 +431,7 @@ function injectVars()
 	v["QU"] = {} --spellup queue
 	v["EX"] = {} --exceptions
 	v["QS"] = {} --queued spells
+	v["RT"] = {} -- recovery
      
      v["GL"]["initilized"] = "no"
 	v["GL"]["Debug"] = "no"
@@ -424,7 +447,7 @@ function injectVars()
 	v["GL"]["autoaurafired"] = "no"
 	v["GL"]["float"] = "none"
 	v["GL"]["sancoff"] = "no"
-
+	v["RT"]["reverse"] = {}
 
      for a,b in pairs(v) do
           for c,d in pairs(b) do
@@ -437,7 +460,7 @@ function SendSlistCommand()
 	if (slistCommandSent == false) then
 		SendPkt (string.char (IAC, SB, TELOPT, TELOPT_INVMON_TAGS, 1, IAC, SE))
 		slistCommandSent = true
-        EnableTriggerGroup("slistCapture", true)
+	EnableTriggerGroup("slistCapture", true)
 		EnableTrigger("RecoveriesStart", true)
 		hadarprint("***Getting Skills/Spells","script")
 		SendNoEcho("slist noprompt")
@@ -472,6 +495,12 @@ function SlistUpdate(name, line, wildcards)
 		Spellups["AS"]["spells"][sn] = nm
 	elseif ty == 2 then
 		Spellups["AS"]["skills"][sn] = nm
+	end
+	
+	if rc ~= -1 and pc > 1 then
+		hadarprint("SN:"..sn..", NM:"..nm..", TG:"..tg..", DU:"..du..", PC:"..pc..", RC:"..rc..", TY:"..ty,"debug")
+		Spellups["RT"][rc] = {skillnum = sn, name = nm, duration = du, type = ty, target = tg}
+		Spellups["RT"]["reverse"][sn] = {recovery = rc}
 	end
 		
 end--end update
@@ -525,7 +554,10 @@ function setdebug()
 end
 
 function testshow(arg)
-     tprint(Spellups[arg])
+     --tprint(Spellups[arg])
+	--tprint(Spellups["RT"]["reverse"])
+	Note(IsTimer("warn_30_"..arg))
+	Note(IsTimer("warn_10_"..arg))
 end
 
 function invmon(nm,ln,wc)
@@ -542,6 +574,11 @@ function affon(name, line, wc)
 	
 	if Spellups["GL"]["disabled"] == "yes" then
 		return
+	end
+	
+	if table.find(sn,Spellups["RT"]["reverse"]) ~= nil then
+		hadarprint("fired on lookup for RT/reverse","debug")
+		recoveryup(sn,tm)
 	end
 	
 	
@@ -872,6 +909,66 @@ function HSPreload()
 	SendSlistCommand()
 end
 
+function recoveryup(sn,timer)
+	hadarprint("SN:"..sn..", TIMER:"..timer,"debug")
+	
+	local sn = tonumber(sn)
+	local tm = tonumber(timer)
+	local num = Spellups["RT"]["reverse"][sn]["recovery"]
+	local uptime1 = tm - 30
+	local uptime2 = tm - 10
+	
+	local firstwarn = "warn_30_"..num
+	local secondwarn = "warn_10_"..num
+	
+	local remaining1 = uptime1 % 86400
+	local hours1 = math.floor(remaining1/3600)
+	remaining1 = remaining1 % 3600
+	local minutes1 = math.floor(remaining1/60)
+	remaining1 = remaining1 % 60
+	local seconds1 = remaining1
+	local remaining2 = uptime2 % 86400
+	local hours2 = math.floor(remaining2/3600)
+	remaining2 = remaining2 % 3600
+	local minutes2 = math.floor(remaining2/60)
+	remaining2 = remaining2 % 60
+	local seconds2 = remaining2
+	
+	hadarprint("1)"..firstwarn..":"..uptime1.." hours:"..hours1..", minutes:"..minutes1..", seconds:"..seconds1,"debug")
+	hadarprint("2)"..secondwarn..":"..uptime2.." hours:"..hours2..", minutes:"..minutes2..", seconds:"..seconds2,"debug")
+	
+	check(AddTimer (firstwarn, hours1, minutes1, seconds1, "", timer_flag.Enabled+timer_flag.OneShot+timer_flag.Replace, "rcwarning"))
+	check(AddTimer (secondwarn, hours2, minutes2, seconds2, "", timer_flag.Enabled+timer_flag.OneShot+timer_flag.Replace, "rcwarning"))
+end
+
+function recon(n,l,wc)
+	local sn = tonumber(wc.sn)
+	local tm = tonumber(wc.timer)
+	
+	hadarprint("Recovery on:"..Spellups["RT"][sn]["name"].." For:"..tm,"debug")
+	--Spellups["RT"][rc] = {skillnum = sn, name = nm, duration = du, type = ty, target = tg}
+end
+
+function recoff(n,l,wc)
+end
+
+function rcwarning(arg)
+	local t = utils.split(arg,"_")
+	local message
+	
+	if t[2] == "30" then
+		--message = interp()???
+		message = "30 seconds until "..Spellups["RT"][tonumber(t[3])]["name"].." falls off"
+	elseif t[2] == "10" then
+		message = "10 seconds until "..Spellups["RT"][tonumber(t[3])]["name"].." falls off"
+	else
+		message = "danger will robinson i dont know how i got here!"
+	end
+	
+	hadarprint(message,"script")
+	CallPlugin("b555825a4a5700c35fa80780","storeFromOutside",message, 1, "yes")
+end
+
 function HadarHelp()
 hadarprint("@x086+---------------------------@g[@CA@cuto @CS@cpells@G]@x086------------------------------+@w")
 hadarprint("@x086| @x214hsp help                @x110- @x214Displays this helpfile                     @x086|@w")
@@ -880,11 +977,11 @@ hadarprint("@x086|                           @x208be recast, no argument to see 
 hadarprint("@x086|                           @x208EG. hsp noauto 58                          @x086|@w")
 hadarprint("@x086| @x214hsp noauto clear        @x110- @x214clears your noauto list                    @x086|@w")
 hadarprint("@x086| @x208hsp disable             @x110- @x208Turns the script on or off                 @x086|@w")
-hadarprint("| hsp autoaura <command>  - Has multiple commands, they are:           |@w")
-hadarprint("|                         - On  - enables wearing aura in combat       |@w")
-hadarprint("|                         - Off - diables wearing aura in combat       |@w")
-hadarprint("|                         - aura <itemid> - set the id of your aura    |@w")
-hadarprint("|                         - bag <itemid> - set the id of bag with aura |@w")
+hadarprint("@x086| @x214hsp autoaura <command>  @x110- Has multiple commands, they are:           @x086|@w")
+hadarprint("@x086|                         @x110-@x214 On  @x110-@x214 enables wearing aura in combat       @x086|@w")
+hadarprint("@x086|                         @x110-@x214 Off @x110-@x214 diables wearing aura in combat       @x086|@w")
+hadarprint("@x086|                         @x110-@x214 aura <itemid> @x110-@x214 set the id of your aura    @x086|@w")
+hadarprint("@x086|                         @x110-@x214 bag <itemid> @x110-@x214 set the id of bag with aura @x086|@w")
 hadarprint("@x086+----------------------------------------------------------------------+@w")
 end
 
