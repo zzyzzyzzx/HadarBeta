@@ -11,7 +11,7 @@
    save_state="y"
    date_written="2021-12-31 00:00:00"
    requires="4.00"
-   version="0.32"
+   version="0.33"
    >
 
 </plugin>
@@ -454,6 +454,7 @@ function injectVars()
 	v["GL"]["commLogTab"] = nil
 	v["GL"]["thirtytimer"] = "yes"
 	v["GL"]["tentimer"] = "yes"
+	v["GL"]["seespells"] = "yes"
 
 	v["EX"]["clanskill"] = "none"
 	
@@ -554,6 +555,8 @@ function HSPmain(name, line, wc)
 		hspSet(rest)
 	elseif first == "report" then
 		hspWindow(rest)
+	elseif first == "seespells" then
+		hspToggleSeeSpells()
 	else
           HadarHelp()
      end
@@ -575,10 +578,10 @@ function setdebug()
 end
 
 function testshow(arg)
-     --tprint(Spellups[arg])
+    tprint(Spellups[arg])
 	--tprint(Spellups["RT"]["reverse"])
-	Note(IsTimer("warn_30_"..arg))
-	Note(IsTimer("warn_10_"..arg))
+	--Note(IsTimer("warn_30_"..arg))
+	--Note(IsTimer("warn_10_"..arg))
 end
 
 function invmon(nm,ln,wc)
@@ -669,6 +672,8 @@ function sfail(name,line,wc)
 	local tg = wc.tg --target
 	local fl = tonumber(wc.fl) --failed reason 1  - Regular fail, lost concentration. 2  - Already affected.3  - Cast blocked by a recovery, see below.4  - Not enough mana.5  - You are in a nocast room.6  - Fighting or other "can't concentrate".8  - You don't know the spell.9  - Tried to cast self only on other.10  - You are resting / sitting.11  - Skill/spell has been disabled. 12  - Not enough moves.
 	local rc = tonumber(wc.rc) --failed because recovery number
+
+	hadarprint("Spell failed! SN:"..sn..", TG:"..tg..", FL:"..fl,"debug")
 	
 	if Spellups["GL"]["disabled"] == "yes" then
 		return
@@ -686,12 +691,16 @@ function sfail(name,line,wc)
 	end
 	
 	if fl == 1 or fl == 6 then
-		
-		if table.find(sn,Spellups["AS"]["spellup"][sn]) ~= nil then
+		hadarprint("FL 1 or 6!","debug")
+		if sn == 121 then
 			Spellups["QS"][sn] = Spellups["AS"]["list"][sn]["name"]
-		
-			cast_spells()
 		end
+
+		if table.find(sn,Spellups["AS"]["spellup"]) ~= nil then
+			Spellups["QS"][sn] = Spellups["AS"]["list"][sn]["name"]
+			hadarprint("failed and found in spellup","debug")
+		end
+		cast_spells()
 	end
 end
 
@@ -705,6 +714,7 @@ function cast_spells()
 
 		if Spellups["GL"]["exceptions"] == "yes" and currentState == 8 then
 			if table.find(i,Spellups["EX"]["exceptions"]) ~= nil then
+				hadarprint("found exception","debug")
 				cast_this(i,ctype)
 			end
 		elseif currentState == 3 then
@@ -726,14 +736,28 @@ end
 
 function cast_this(sn,ctype)
 	Spellups["QS"][sn] = nil
-    if ctype == 1 then
-        Send("cast '"..sn.."'")
-    elseif sn == 226 and ctype == 2 then
-        Send("trace")
-    elseif ctype == 2 then
-        local t = utils.split(Spellups["AS"]["list"][sn]["name"]," ",2)
-        Send(t[1])
-    end
+	hadarprint("casting:"..sn,"debug")
+	
+	if ctype == 1 then
+		if Spellups["GL"]["seespells"] == "yes" then
+			Send("cast '"..Spellups["AS"]["list"][sn]["name"].."'")
+		else
+			SendNoEcho("cast '"..Spellups["AS"]["list"][sn]["name"].."'")
+		end
+	elseif sn == 226 and ctype == 2 then
+		if Spellups["GL"]["seespells"] == "yes" then
+			Send("trace")
+		else
+			SendNoEcho("trace")
+		end
+	elseif ctype == 2 then
+		local t = utils.split(Spellups["AS"]["list"][sn]["name"]," ",2)
+		if Spellups["GL"]["seespells"] == "yes" then
+			Send(t[1])
+		else
+			SendNoEcho(t[1])
+		end
+	end
 end
 
 function table.find(val, tbl) 
@@ -1110,6 +1134,16 @@ function hspWindow(str)
 	SaveState()
 end
 
+function hspToggleSeeSpells()
+	if Spellups["GL"]["seespells"] == "yes" then
+		Spellups["GL"]["seespells"] = "no"
+		hadarprint("Seeing the recast message @RDISABLED@w","script")
+	else
+		Spellups["GL"]["seespells"] = "yes"
+		hadarprint("Seeing the recast message @GENABLED@w","script")
+	end
+end
+
 function HadarHelp()
 hadarprint("@x086+---------------------------@g[@CA@cuto @CS@cpells@G]@x086------------------------------+@w")
 hadarprint("@x086| @x214hsp help                @x110- @x214Displays this helpfile                     @x086|@w")
@@ -1124,12 +1158,13 @@ hadarprint("@x086|                         @x110-@x214 Off @x110-@x214 diables w
 hadarprint("@x086|                         @x110-@x214 aura <itemid> @x110-@x214 set the id of your aura    @x086|@w")
 hadarprint("@x086|                         @x110-@x214 bag <itemid> @x110-@x214 set the id of bag with aura @x086|@w")
 hadarprint("@x086| @x208hsp set <thing>         @x110- @x208Sets the message output for reports        @x086|@w")
-hadarprint("@x086|                         @x110- @Glogo@x110,@G 30@x110,@G 10                               @x086|@w")
+hadarprint("@x086|                         @x110- @glogo@x110,@G 30@x110,@G 10                               @x086|@w")
 hadarprint("@x086| @x214hsp channel <channel>   @x110- @x214no arguments displays the channel          @x086|@w")
 hadarprint("@x086|                           @REG@W.@G hsp channel spouse                     @x086|")
 hadarprint("@x086| @x208hsp report <screen> <log>@x110- @x208screen main or comm, log = comm log       @x086|@w")
 hadarprint("@x086|                           @REG@W.@G hsp report comm SpellTracker          @x086 |")
 hadarprint("@x086|                           @REG@W.@G hsp report main off                   @x086 |")
+hadarprint("@x086| @x214hsp seespells           @x110- @x214toggle seeing recasts                 @x086|@w")
 hadarprint("@x086+----------------------------------------------------------------------+@w")
 end
 
