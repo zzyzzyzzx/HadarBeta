@@ -11,7 +11,7 @@
    save_state="y"
    date_written="2021-12-31 00:00:00"
    requires="4.00"
-   version="0.38"
+   version="0.39"
    >
 
 </plugin>
@@ -634,6 +634,34 @@ function affoff(name,line,wc)
 	if Spellups["GL"]["disabled"] == "yes" then
 		return
 	end
+
+	if sn == 526 then
+		if Spellups["CG"]["elementfocus"] == 0 then
+			hadarprint("Element for elemental focus not set, attempting to cast with last focus","script")
+			cast_this(skillnum,skilltype)
+		else
+			if Spellups["GL"]["seespells"] == "yes" then
+				Send("cast '"..skillname.."' "..Spellups["CG"]["elementfocus"])
+			else
+				SendNoEcho("cast '"..skillname.."' "..Spellups["CG"]["elementfocus"])
+			end --end seespell check
+		end --end elementalfocus check
+		return
+	end --end elemental focus recoverynumber
+
+	if sn == 530 then
+		if Spellups["CG"]["elementward"] == 0 then
+			hadarprint("Element for elemental ward not set, attempting to cast with last ward","script")
+			cast_this(skillnum,skilltype)
+		else
+			if Spellups["GL"]["seespells"] == "yes" then
+				Send("cast '"..skillname.."' "..Spellups["CG"]["elementward"])
+			else
+				SendNoEcho("cast '"..skillname.."' "..Spellups["CG"]["elementward"])
+			end --end seespell check
+		end --end elemental ward check
+		return
+	end --end elemental ward recoverynumber
 	
 	if Spellups["AS"]["list"][sn]["target"] == 2 or Spellups["AS"]["list"][sn]["target"] == 3 then
 		if currentState == 8 and Spellups["GL"]["autoaura"] == "yes" then
@@ -1039,32 +1067,6 @@ function recoff(n,l,wc)
 	local skilltype = Spellups["RT"][sn]["type"]
 	local skillname = Spellups["RT"][sn]["name"]
 
-	if sn == 3 then
-		if Spellups["CG"]["elementfocus"] == 0 then
-			hadarprint("Element for elemental focus not set, attempting to cast with last focus","script")
-			cast_this(skillnum,skilltype)
-		else
-			if Spellups["GL"]["seespells"] == "yes" then
-				Send("cast '"..skillname.."'")
-			else
-				SendNoEcho("cast '"..skillname.."' "..Spellups["CG"]["elementfocus"])
-			end --end seespell check
-		end --end elementalfocus check
-	end --end elemental focus recoverynumber
-
-	if sn == 55 then
-		if Spellups["CG"]["elementward"] == 0 then
-			hadarprint("Element for elemental ward not set, attempting to cast with last ward","script")
-			cast_this(skillnum,skilltype)
-		else
-			if Spellups["GL"]["seespells"] == "yes" then
-				Send("cast '"..skillname.."'")
-			else
-				SendNoEcho("cast '"..skillname.."' "..Spellups["CG"]["elementward"])
-			end --end seespell check
-		end --end elemental ward check
-	end --end elemental ward recoverynumber
-
 	if sn == 16 then
 		if Spellups["CG"]["totemcast"] == "force" then
 			if Spellups["GL"]["seespells"] == "yes" then
@@ -1277,11 +1279,11 @@ hadarprint("@x086| @x214hsp noauto clear        @x110- @x214clears your noauto l
 hadarprint("@x086| @x208hsp disable             @x110- @x208Turns the script on or off                 @x086|@w")
 hadarprint("@x086| @x214hsp autoaura <command>  @x110- Has multiple commands, they are:           @x086|@w")
 hadarprint("@x086|                         @x110-@x214 On  @x110-@x214 enables wearing aura in combat       @x086|@w")
-hadarprint("@x086|                         @x110-@x214 Off @x110-@x214 disables wearing aura in combat      @x086|@w")
+hadarprint("@x086|                         @x110-@x214 Off @x110-@x214 diables wearing aura in combat       @x086|@w")
 hadarprint("@x086|                         @x110-@x214 aura <itemid> @x110-@x214 set the id of your aura    @x086|@w")
 hadarprint("@x086|                         @x110-@x214 bag <itemid> @x110-@x214 set the id of bag with aura @x086|@w")
 hadarprint("@x086| @x208hsp set <thing>         @x110- @x208Sets the message output for reports        @x086|@w")
-hadarprint("@x086|                         @x110- @glogo@x110,@g 30@x110,@g 10                               @x086|@w")
+hadarprint("@x086|                         @x110- @glogo@x110,@G 30@x110,@G 10                               @x086|@w")
 hadarprint("@x086| @x214hsp channel <channel>   @x110- @x214no arguments displays the channel          @x086|@w")
 hadarprint("@x086|                           @REG@W.@G hsp channel spouse                     @x086|")
 hadarprint("@x086| @x208hsp report <screen> <log>@x110- @x208screen main or comm, log = comm log       @x086|@w")
