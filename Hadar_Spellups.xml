@@ -11,7 +11,7 @@
    save_state="y"
    date_written="2021-12-31 00:00:00"
    requires="4.00"
-   version="0.35"
+   version="0.36"
    >
 
 </plugin>
@@ -241,8 +241,6 @@ handle gaias focus? (cast focus then revenge)
 totem guidance/totem force use same cooldown?
 Scars tells you 'hey man, elemental focus and elemental ward need to be added to the 'castable in combat' list :)'
 
-make recovery message into commwindow/main window (custom message line, will need hadarmagic)
-
 special cast cases!
 elemental focus / elemental ward
 totem guidance / totem force
@@ -334,10 +332,11 @@ function OnPluginEnable ()
 	Spellups["AF"] = {} --affected by
 	Spellups["NA"] = {} --not affected by
 	Spellups["QU"] = {} --spellup queue
-	Spellups["EX"] = {} --exceptions (combat)
+	Spellups["EX"] = {} --exceptions
 	Spellups["QS"] = {} --queued spells
 	Spellups["RT"] = {} --recoverys
 	Spellups["MS"] = {} --messages
+	Spellups["CG"] = {} --configs (mainly for special cases)
 	
 	
 	if GetVariable ("pastfirstinstall") == "true" then
@@ -439,6 +438,7 @@ function injectVars()
 	v["QS"] = {} --queued spells
 	v["RT"] = {} --recovery
 	v["MS"] = {} --messages
+	v["CG"] = {} --configs (mainly for special cases)
      
     v["GL"]["initilized"] = "no"
 	v["GL"]["Debug"] = "no"
@@ -469,6 +469,10 @@ function injectVars()
 	v["MS"]["thirty"] = "${logo} ${spell} is going to fall in 30 seconds"
 	v["MS"]["ten"] = "${logo} ${spell} is going to fall in 10 seconds"
 	v["MS"]["channel"] = "echo"
+
+	v["CG"]["elementward"] = 0
+	v["CG"]["elementfocus"] = 0
+	v["CG"]["totemcast"] = 0
 
      for a,b in pairs(v) do
           for c,d in pairs(b) do
@@ -541,8 +545,8 @@ function HSPmain(name, line, wc)
      
      first = string.lower(first)
      
-     if first == "varshow" then
-          testshow(rest)
+	if first == "varshow" then
+		testshow(rest)
 	elseif first == "debug" then
 		setdebug()
 	elseif first == "disable" then
@@ -561,8 +565,14 @@ function HSPmain(name, line, wc)
 		hspWindow(rest)
 	elseif first == "seespells" then
 		hspToggleSeeSpells()
+	elseif first == "totem" then
+		hspsettotem(rest)
+	elseif first == "elementalfocus" then
+		hspsetfocus(rest)
+	elseif first == "elementalward" then
+		hspsetward(rest)
 	else
-          HadarHelp()
+		HadarHelp()
      end
 
 end
@@ -1024,6 +1034,55 @@ function recon(n,l,wc)
 end
 
 function recoff(n,l,wc)
+	local sn = tonumber(wc.sn)
+	local skillnum = Spellups["RT"][sn]["skillnum"]
+	local skilltype = Spellups["RT"][sn]["type"]
+	local skillname = Spellups["RT"][sn]["name"]
+
+	if sn == 3 then
+		if Spellups["CG"]["elementfocus"] == 0 then
+			hadarprint("Element for elemental focus not set, attempting to cast with last focus","script")
+			cast_this(skillnum,skilltype)
+		else
+			if Spellups["GL"]["seespells"] == "yes" then
+				Send("cast '"..skillname.."'")
+			else
+				SendNoEcho("cast '"..skillname.."' "..Spellups["CG"]["elementfocus"])
+			end --end seespell check
+		end --end elementalfocus check
+	end --end elemental focus recoverynumber
+
+	if sn == 55 then
+		if Spellups["CG"]["elementward"] == 0 then
+			hadarprint("Element for elemental ward not set, attempting to cast with last ward","script")
+			cast_this(skillnum,skilltype)
+		else
+			if Spellups["GL"]["seespells"] == "yes" then
+				Send("cast '"..skillname.."'")
+			else
+				SendNoEcho("cast '"..skillname.."' "..Spellups["CG"]["elementward"])
+			end --end seespell check
+		end --end elemental ward check
+	end --end elemental ward recoverynumber
+
+	if sn == 16 then
+		if Spellups["CG"]["totemcast"] == "force" then
+			if Spellups["GL"]["seespells"] == "yes" then
+				Send("cast 'totem force'")
+			else
+				SendNoEcho("cast 'totem force'")
+			end --end seespell check
+		elseif Spellups["CG"]["totemcast"] == "guidance" then
+			if Spellups["GL"]["seespells"] == "yes" then
+				Send("cast 'totem guidance'")
+			else
+				SendNoEcho("cast 'totem guidance'")
+			end --end seespell check
+		else
+			hadarprint("Autocasting totem guidance or totem focus not set")
+		end
+	end --end elemental focus recoverynumber
+						
 end
 
 function rcwarning(arg)
@@ -1168,6 +1227,67 @@ function hspToggleSeeSpells()
 		hadarprint("Seeing the recast message @GENABLED@w","script")
 	end
 end
+
+function hspsettotem(str)
+	local arg, rest = str:match("([0-9.a-zA-Z]*)%s*(.*)")
+	arg = string.lower(arg)
+
+	if arg == "force" then
+		Spellups["CG"]["totemcast"] = "force"
+		hadarprint("When able you will cast @Gtotem force@w","script")
+	elseif arg == "guidance" then
+		Spellups["CG"]["totemcast"] = "guidance"
+		hadarprint("When able you will cast @Gtotem guidance@w","script")
+	else
+		hadarprint("You need to enter which totem you want to cast either @R[@Ghsp totem force@R]@c, or @R[@Ghsp totem guidance@R]@w","script")
+	end
+end
+
+function hspsetfocus(str)
+	--local arg, rest = str:match("([0-9.a-zA-Z]*)%s*(.*)")
+	--arg = string.lower(arg)
+end
+
+function hspsetward(str)
+	--local arg, rest = str:match("([0-9.a-zA-Z]*)%s*(.*)")
+	--arg = string.lower(arg)
+end
+
+
+--[[
+	if Spellups["CG"]["elementfocus"] == 0 then
+	hadarprint("Element for elemental focus not set, attempting to cast with last focus","script")
+	cast_this(skillnum,skilltype)
+else
+	if Spellups["GL"]["seespells"] == "yes" then
+		Send("cast '"..skillname.."'")
+	else
+		SendNoEcho("cast '"..skillname.."' "..Spellups["CG"]["elementfocus"])
+	end --end seespell check
+end --end elementalfocus check
+end --end elemental focus recoverynumber
+
+if sn == 55 then
+if Spellups["CG"]["elementward"] == 0 then
+	hadarprint("Element for elemental ward not set, attempting to cast with last ward","script")
+	cast_this(skillnum,skilltype)
+else
+	if Spellups["GL"]["seespells"] == "yes" then
+		Send("cast '"..skillname.."'")
+	else
+		SendNoEcho("cast '"..skillname.."' "..Spellups["CG"]["elementward"])
+	end --end seespell check
+end --end elemental ward check
+end --end elemental ward recoverynumber
+
+if sn == 16 then
+if Spellups["CG"]["totemcast"] == "force" then
+	if Spellups["GL"]["seespells"] == "yes" then
+		Send("cast 'totem force'")
+	else
+		SendNoEcho("cast 'totem force'")
+	end --end seespell check
+elseif Spellups["CG"]["totemcast"] == "guidance" then]]
 
 function HadarHelp()
 hadarprint("@x086+---------------------------@g[@CA@cuto @CS@cpells@G]@x086------------------------------+@w")
