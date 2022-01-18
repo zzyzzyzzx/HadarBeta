@@ -11,7 +11,7 @@
    save_state="y"
    date_written="2021-12-31 00:00:00"
    requires="4.00"
-   version="0.31"
+   version="0.32"
    >
 
 </plugin>
@@ -230,12 +230,9 @@ require "tprint"
 dofile(GetInfo(60) .. "aardwolf_colors.lua")
 dofile(GetInfo(60).."telnet_options.lua")
 TelnetOptionOn(TELOPT_SPELLUP) -- fiendish recommends this way to enable the spellup tags silently
-local IAC = 255
-local SB  = 250
-local TELOPT = 102
-local SE  = 240
-local TELOPT_INVMON_TAGS = 20
-local GLOBAL_TAG_MUTE = 50
+TelnetOptionOn(20)
+local currentState = -1 -- uninitialized
+local slistCommandSent = false
 
 --[[
 TODO
@@ -251,9 +248,6 @@ fix the spacing on hsp noauto show
     version 0.19 takes out all the debug stuff to make it cleaner
     version 0.22 added in the auro aura stuff
     ]]
-
-	local currentState = -1 -- uninitialized
-	local slistCommandSent = false
 
 function hadarprint(str,level)
 
@@ -273,6 +267,14 @@ function hadarprint(str,level)
 		AnsiNote(ColoursToANSI(str))
 	end
 	
+end
+
+function interp(s, tab)
+	if s == nil then
+		hadarprint("@RYou forgot to fill in a message please use @Chsp help@R and run the message commands to see which one.")
+	else
+		return (s:gsub('($%b{})', function(w) return tab[w:sub(3, -2)] or w end))
+	end
 end
 
 function OnPluginBroadcast(msg, id, name, text)
@@ -323,7 +325,6 @@ end
 function OnPluginEnable ()
 
 	Spellups = {}
-	noAuto = {}
     Spellups["GL"] = {}
     Spellups["AS"] = {}
 	Spellups["AF"] = {} --affected by
@@ -332,6 +333,7 @@ function OnPluginEnable ()
 	Spellups["EX"] = {} --exceptions (combat)
 	Spellups["QS"] = {} --queued spells
 	Spellups["RT"] = {} --recoverys
+	Spellups["MS"] = {} --messages
 	
 	
 	if GetVariable ("pastfirstinstall") == "true" then
@@ -348,9 +350,9 @@ function OnPluginEnable ()
 	
 	Spellups["GL"]["clan"] = gmcp("char.base.clan") -- fetch char.base and return it as a Lua table
 	 
-	 if Spellups["GL"]["clan"] == "loner" or Spellups["GL"]["clan"] == "outcast" or Spellups["GL"]["clan"] == "exile" then
+	if Spellups["GL"]["clan"] == "loner" or Spellups["GL"]["clan"] == "outcast" or Spellups["GL"]["clan"] == "exile" then
 		Spellups["GL"]["clan"] = "none"
-	 end
+	end
 	hadarprint("Current clan is "..Spellups["GL"]["clan"],"debug")
 	
 	if Spellups["GL"]["clan"] ~= "none" then 
@@ -381,32 +383,32 @@ function buildInitial()
 	[335] = true -- grey aura
 	}
 	Spellups["EX"]["noAuto"] = {}
-     Spellups["AS"]["cSkills"] = {
-     ["twinlobe"] = 468,
-     ["watchmen"] = 483,
-     ["seekers"] =  489,
-     ["emerald"] =  492,
-     ["light"] = 463,
-     ["baal"] = 466,
-     ["hook"] = 470,
-     ["bard"] = 505,
-     ["crusader"] = 488,
-     ["xunti"] = 498,
-     ["imperium"] = 479,
-     ["crimson"] = 471,
-     ["retribution"] = 480,
-     ["druid"] = 475,
-     ["amazon"] = 490,
-     ["pyre"] = 485,
-     ["masaki"] = 481,
-     ["rhabdo"] = 524,
-     ["perdition"] = 497,
-     ["loqui"] = 510,
-     ["gaardian"] = 509,
-     ["tao"] = 499,
-     ["touchstone"] = 496,
-     ["boot"] = 606
-     }
+    Spellups["AS"]["cSkills"] = {
+    ["twinlobe"] = 468,
+    ["watchmen"] = 483,
+    ["seekers"] =  489,
+    ["emerald"] =  492,
+    ["light"] = 463,
+    ["baal"] = 466,
+    ["hook"] = 470,
+    ["bard"] = 505,
+    ["crusader"] = 488,
+    ["xunti"] = 498,
+    ["imperium"] = 479,
+    ["crimson"] = 471,
+    ["retribution"] = 480,
+    ["druid"] = 475,
+    ["amazon"] = 490,
+    ["pyre"] = 485,
+    ["masaki"] = 481,
+    ["rhabdo"] = 524,
+    ["perdition"] = 497,
+    ["loqui"] = 510,
+    ["gaardian"] = 509,
+    ["tao"] = 499,
+    ["touchstone"] = 496,
+    ["boot"] = 606
+    }
 end
 
 function checkExist(tbl, idx, val) 
@@ -423,17 +425,18 @@ function checkExist(tbl, idx, val)
 end
 
 function injectVars()
-     local v = {}
-     v["GL"] = {} --global
-     v["AS"] = {} --all spells
+	local v = {}
+	v["GL"] = {} --global
+	v["AS"] = {} --all spells
 	v["AF"] = {} --affected by
 	v["NA"] = {} --not affected by
 	v["QU"] = {} --spellup queue
 	v["EX"] = {} --exceptions
 	v["QS"] = {} --queued spells
-	v["RT"] = {} -- recovery
+	v["RT"] = {} --recovery
+	v["MS"] = {} --messages
      
-     v["GL"]["initilized"] = "no"
+    v["GL"]["initilized"] = "no"
 	v["GL"]["Debug"] = "no"
 	v["GL"]["autoaura"] = "no"
 	v["GL"]["smartcast"] = "no" --todo item
@@ -441,13 +444,26 @@ function injectVars()
 	v["GL"]["disabled"] = "no"
 	v["GL"]["exceptions"] = "yes"
 	v["GL"]["clan"] = "none"
-	v["EX"]["clanskill"] = "none"
 	v["GL"]["aurabag"] = 0
 	v["GL"]["auranumber"] = 0
 	v["GL"]["autoaurafired"] = "no"
 	v["GL"]["float"] = "none"
 	v["GL"]["sancoff"] = "no"
+	v["GL"]["mainWindow"] = "yes"
+	v["GL"]["commLog"] = "no"
+	v["GL"]["commLogTab"] = nil
+	v["GL"]["thirtytimer"] = "yes"
+	v["GL"]["tentimer"] = "yes"
+
+	v["EX"]["clanskill"] = "none"
+	
 	v["RT"]["reverse"] = {}
+	
+	
+	v["MS"]["logo"] = "@G[@CS@cpellup@G]@c"
+	v["MS"]["thirty"] = "${logo} ${spell} is going to fall in 30 seconds"
+	v["MS"]["ten"] = "${logo} ${spell} is going to fall in 10 seconds"
+	v["MS"]["channel"] = "echo"
 
      for a,b in pairs(v) do
           for c,d in pairs(b) do
@@ -458,9 +474,8 @@ end
 
 function SendSlistCommand()
 	if (slistCommandSent == false) then
-		SendPkt (string.char (IAC, SB, TELOPT, TELOPT_INVMON_TAGS, 1, IAC, SE))
 		slistCommandSent = true
-	EnableTriggerGroup("slistCapture", true)
+		EnableTriggerGroup("slistCapture", true)
 		EnableTrigger("RecoveriesStart", true)
 		hadarprint("***Getting Skills/Spells","script")
 		SendNoEcho("slist noprompt")
@@ -533,6 +548,12 @@ function HSPmain(name, line, wc)
 		HSPreload()
 	elseif first == "autoaura" then
 		autoaura(rest)
+	elseif first == "channel" then
+		hspSetChannel(rest)
+	elseif first == "set" then
+		hspSet(rest)
+	elseif first == "report" then
+		hspWindow(rest)
 	else
           HadarHelp()
      end
@@ -937,8 +958,13 @@ function recoveryup(sn,timer)
 	hadarprint("1)"..firstwarn..":"..uptime1.." hours:"..hours1..", minutes:"..minutes1..", seconds:"..seconds1,"debug")
 	hadarprint("2)"..secondwarn..":"..uptime2.." hours:"..hours2..", minutes:"..minutes2..", seconds:"..seconds2,"debug")
 	
-	check(AddTimer (firstwarn, hours1, minutes1, seconds1, "", timer_flag.Enabled+timer_flag.OneShot+timer_flag.Replace, "rcwarning"))
-	check(AddTimer (secondwarn, hours2, minutes2, seconds2, "", timer_flag.Enabled+timer_flag.OneShot+timer_flag.Replace, "rcwarning"))
+	if Spellups["GL"]["thirtytimer"] == "yes" then
+		check(AddTimer (firstwarn, hours1, minutes1, seconds1, "", timer_flag.Enabled+timer_flag.OneShot+timer_flag.Replace, "rcwarning"))
+	end
+
+	if Spellups["GL"]["tentimer"] == "yes" then
+		check(AddTimer (secondwarn, hours2, minutes2, seconds2, "", timer_flag.Enabled+timer_flag.OneShot+timer_flag.Replace, "rcwarning"))
+	end
 end
 
 function recon(n,l,wc)
@@ -946,7 +972,6 @@ function recon(n,l,wc)
 	local tm = tonumber(wc.timer)
 	
 	hadarprint("Recovery on:"..Spellups["RT"][sn]["name"].." For:"..tm,"debug")
-	--Spellups["RT"][rc] = {skillnum = sn, name = nm, duration = du, type = ty, target = tg}
 end
 
 function recoff(n,l,wc)
@@ -957,16 +982,132 @@ function rcwarning(arg)
 	local message
 	
 	if t[2] == "30" then
-		--message = interp()???
-		message = "30 seconds until "..Spellups["RT"][tonumber(t[3])]["name"].." falls off"
+		message = interp(Spellups["MS"]["thirty"], {logo = Spellups["MS"]["logo"], spell = Spellups["RT"][tonumber(t[3])]["name"]})
 	elseif t[2] == "10" then
-		message = "10 seconds until "..Spellups["RT"][tonumber(t[3])]["name"].." falls off"
+		message = interp(Spellups["MS"]["ten"], {logo = Spellups["MS"]["logo"], spell = Spellups["RT"][tonumber(t[3])]["name"]})
 	else
 		message = "danger will robinson i dont know how i got here!"
 	end
+
+
+	if message ~= nil then
+          
+		if Spellups["GL"]["mainWindow"] == "yes" then
+			 if Spellups["MS"]["channel"] == "echo" or Spellups["MS"]["channel"] == "print" then
+				  hadarprint(message)
+			 else
+				  SendSpecial(Spellups["MS"]["channel"] .. " " ..message)
+			 end
+		end
+		
+		if Spellups["GL"]["commLog"] == "yes" then
+			 CallPlugin("b555825a4a5700c35fa80780","storeFromOutside",message, Spellups["GL"]["commLogTab"], "yes")
+		end
+		
+		if Spellups["GL"]["commLog"] == "no" and Spellups["GL"]["mainWindow"] == "no" then
+			 hadarprint("You have both reporting to Comm log and reporting to main window off, cant report","error")
+		end
+		
+   end
+end
+
+function hspSet(param)
+	param = string.lower(param)
+	if param == "30" then
+		HadarBackup = Spellups["MS"]["thirty"]
+		Spellups["MS"]["thirty"] = utils.inputbox ("${logo} - Shows the logo of the script\n${spell} - shows the name of the spell", "look of thirty seconds until spell expires", Spellups["MS"]["thirty"], "Courier", 9)
+	   
+		if Spellups["MS"]["thirty"] ~= nil then
+			hadarprint("30 seconds left will look like@W: @w"..Spellups["MS"]["thirty"],"script")
+		else
+			Spellups["MS"]["thirty"] = HadarBackup
+		end
+	elseif param == "10" then
+		HadarBackup = Spellups["MS"]["ten"]
+		Spellups["MS"]["ten"] = utils.inputbox ("${logo} - Shows the logo of the script\n${spell} - shows the name of the spell", "look of ten seconds until spell expires", Spellups["MS"]["ten"], "Courier", 9)
+	   
+		if Spellups["MS"]["ten"] ~= nil then
+			hadarprint("10 seconds left will look like@W: @w"..Spellups["MS"]["ten"],"script")
+		else
+			Spellups["MS"]["ten"] = HadarBackup
+		end
+	elseif param == "logo" then
+		HadarBackup = Spellups["MS"]["logo"]
+		Spellups["MS"]["logo"] = utils.inputbox ("how would you like the logo to look?", "look of logo", Spellups["MS"]["logo"], "Courier", 9)
+   
+		if Spellups["MS"]["logo"] ~= nil then
+			hadarprint("the logo will look like@W: @w"..Spellups["MS"]["logo"],"script")
+		else
+			Spellups["MS"]["logo"] = HadarBackup
+		end
+	else
+		hadarprint("@cYou need to input one of the following@w: @Glogo@w, @G30@w,@G 10@w @C.@c.@C. @YEG:@R hsp set 10@w","error")
+	end
+	SaveState()
+end
+
+function hspSetChannel(str)
+	if str ~= nil and str ~= "" and str ~= " " then
+		Spellups["MS"]["channel"] = str
+		hadarprint("Default channel set to@w: @G" .. Spellups["MS"]["channel"],"script")
+   else
+		hadarprint("Current Channel:"..Spellups["MS"]["channel"],script)
+		hadarprint("@cPlease use the following command@W:@Ghsp channel <channel you want to output to>@w","error")
+   end
+	SaveState()
+end
+
+function hspWindow(str)
+	if str == nil or str == "" or str == " " then
+		 hadarprint("@cYou need to give an argument EG: @Ghsp report main","error")
+		 return
+	end
 	
-	hadarprint(message,"script")
-	CallPlugin("b555825a4a5700c35fa80780","storeFromOutside",message, 1, "yes")
+	local first, second = str:match("(%w+)%s*(.*)")
+	
+	first = string.lower(first)
+	
+	if second == " " or second == "" then
+		 second = nil
+	end
+	  
+
+	if first == "main" and second == nil then
+		if Spellups["GL"]["mainWindow"] == "yes" then
+			  Spellups["GL"]["mainWindow"] = "no"
+			  hadarprint("You will @RNOT @creport spellup info to the main window","script")
+		 else
+			  Spellups["GL"]["mainWindow"] = "yes"
+			  hadarprint("You @GWILL@c report spellup info to the main window","script")
+		 end
+	elseif first == "main" and second == "on" then
+		 Spellups["GL"]["mainWindow"] = "yes"
+		 hadarprint("You @GWILL@c report spellup info to the main window","script")
+	elseif first == "main" and second == "off" then
+		 Spellups["GL"]["mainWindow"] = "no"
+		 hadarprint("You will @RNOT @creport spellup info to the main window","script")
+	elseif first == "comm" and second == nil then
+		 if Spellups["GL"]["commLog"] == "yes" then
+			  Spellups["GL"]["commLog"] = "no"
+			  hadarprint("You will @RNOT @creport spellup info to the comm window","script")
+		 else
+			  Spellups["GL"]["commLog"] = "yes"
+			  hadarprint("You @GWILL@c report spellup info to the comm window","script")
+		 end
+	elseif first == "comm" and second == "on" then
+		 Spellups["GL"]["commLog"] = "yes"
+		 hadarprint("You @GWILL@c report spellup info to the main window","script")
+	elseif first == "comm" and second == "off" then
+		Spellups["GL"]["commLog"] = "no"
+		 hadarprint("You will @RNOT @creport spellup info to the main window","script")
+	end
+	
+	if second ~= nil and second ~= "on" and second ~= "off" then
+		Spellups["GL"]["commLogTab"] = second
+		hadarprint("You will now report spellup info to the @W"..second.."@w communication log","script")
+	end
+	
+	SaveState()
 end
 
 function HadarHelp()
@@ -982,6 +1123,13 @@ hadarprint("@x086|                         @x110-@x214 On  @x110-@x214 enables w
 hadarprint("@x086|                         @x110-@x214 Off @x110-@x214 diables wearing aura in combat       @x086|@w")
 hadarprint("@x086|                         @x110-@x214 aura <itemid> @x110-@x214 set the id of your aura    @x086|@w")
 hadarprint("@x086|                         @x110-@x214 bag <itemid> @x110-@x214 set the id of bag with aura @x086|@w")
+hadarprint("@x086| @x208hsp set <thing>         @x110- @x208Sets the message output for reports        @x086|@w")
+hadarprint("@x086|                         @x110- @Glogo@x110,@G 30@x110,@G 10                               @x086|@w")
+hadarprint("@x086| @x214hsp channel <channel>   @x110- @x214no arguments displays the channel          @x086|@w")
+hadarprint("@x086|                           @REG@W.@G hsp channel spouse                     @x086|")
+hadarprint("@x086| @x208hsp report <screen> <log>@x110- @x208screen main or comm, log = comm log       @x086|@w")
+hadarprint("@x086|                           @REG@W.@G hsp report comm SpellTracker          @x086 |")
+hadarprint("@x086|                           @REG@W.@G hsp report main off                   @x086 |")
 hadarprint("@x086+----------------------------------------------------------------------+@w")
 end
 
