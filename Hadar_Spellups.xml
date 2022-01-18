@@ -11,7 +11,7 @@
    save_state="y"
    date_written="2021-12-31 00:00:00"
    requires="4.00"
-   version="0.41"
+   version="0.42"
    >
 
 </plugin>
@@ -249,17 +249,7 @@ TODO
 Handle cooldown(recoveries) skills/spells
 handle gaias focus? (cast focus then revenge)
 totem guidance/totem force use same cooldown?
-Scars tells you 'hey man, elemental focus and elemental ward need to be added to the 'castable in combat' list :)'
-
-special cast cases!
-elemental focus / elemental ward
-totem guidance / totem force
-
-fix the spacing on hsp noauto show
-
-    version 0.19 takes out all the debug stuff to make it cleaner
-    version 0.22 added in the auro aura stuff
-    ]]
+]]
 
 function hadarprint(str,level)
 
@@ -393,7 +383,9 @@ function buildInitial()
 	[211] = true, -- berserk
 	[258] = true, -- accel
 	[259] = true, -- lightspeed
-	[335] = true -- grey aura
+	[335] = true, -- grey aura
+	[526] = true, -- elemental focus
+	[530] = true -- elemental ward
 	}
 	Spellups["EX"]["noAuto"] = {}
     Spellups["AS"]["cSkills"] = {
@@ -815,6 +807,12 @@ function HSPDisable(arg)
 			Spellups["GL"]["disabled"] = "no"
 		elseif Spellups["GL"]["disabled"] == "no" then
 			Spellups["GL"]["disabled"] = "yes"
+		end
+	elseif string.lower(arg) == "check" then
+		if Spellups["GL"]["disabled"] == "yes" then
+			hadarprint("Spellup Autocast is currently @RDISABLED@w","script")
+		elseif Spellups["GL"]["disabled"] == "no" then
+			hadarprint("Spellup Autocast is currently @GENABLED@w","script")
 		end
 	else
 		if Spellups["GL"]["disabled"] == "yes" then
@@ -1282,23 +1280,24 @@ hadarprint("@x086| @x208hsp noauto <number>     @x110- @x208number optional, set
 hadarprint("@x086|                           @x208be recast, no argument to see list         @x086|@w")
 hadarprint("@x086|                           @x208EG. hsp noauto 58                          @x086|@w")
 hadarprint("@x086| @x214hsp noauto clear        @x110- @x214clears your noauto list                    @x086|@w")
-hadarprint("@x086| @x208hsp disable             @x110- @x208Turns the script on or off                 @x086|@w")
-hadarprint("@x086| @x214hsp autoaura <command>  @x110- Has multiple commands, they are:           @x086|@w")
-hadarprint("@x086|                         @x110-@x214 On  @x110-@x214 enables wearing aura in combat       @x086|@w")
-hadarprint("@x086|                         @x110-@x214 Off @x110-@x214 diables wearing aura in combat       @x086|@w")
-hadarprint("@x086|                         @x110-@x214 aura <itemid> @x110-@x214 set the id of your aura    @x086|@w")
-hadarprint("@x086|                         @x110-@x214 bag <itemid> @x110-@x214 set the id of bag with aura @x086|@w")
-hadarprint("@x086| @x208hsp set <thing>         @x110- @x208Sets the message output for reports        @x086|@w")
+hadarprint("@x086| @x208hsp disable <check>     @x110- @x208Turns the script on or off, check is status@x086|@w")
+hadarprint("@x086| @x214hsp reload              @x110- @x214 reloads the skills/spells use after tier  @x086|@w")
+hadarprint("@x086| @x208hsp autoaura <command>  @x110- @x208Has multiple commands, they are:           @x086|@w")
+hadarprint("@x086|                         @x110-@x208 On  @x110-@x214 enables wearing aura in combat       @x086|@w")
+hadarprint("@x086|                         @x110-@x208 Off @x110-@x214 diables wearing aura in combat       @x086|@w")
+hadarprint("@x086|                         @x110-@x208 aura <itemid> @x110-@x214 set the id of your aura    @x086|@w")
+hadarprint("@x086|                         @x110-@x208 bag <itemid> @x110-@x214 set the id of bag with aura @x086|@w")
+hadarprint("@x086| @x214hsp set <thing>         @x110- @x214Sets the message output for reports        @x086|@w")
 hadarprint("@x086|                         @x110- @glogo@x110,@G 30@x110,@G 10                               @x086|@w")
-hadarprint("@x086| @x214hsp channel <channel>   @x110- @x214no arguments displays the channel          @x086|@w")
+hadarprint("@x086| @x208hsp channel <channel>   @x110- @x208no arguments displays the channel          @x086|@w")
 hadarprint("@x086|                           @REG@W.@G hsp channel spouse                     @x086|")
-hadarprint("@x086| @x208hsp report <screen> <log>@x110- @x208screen main or comm, log = comm log       @x086|@w")
+hadarprint("@x086| @x214hsp report <screen> <log>@x110- @x214screen main or comm, log = comm log       @x086|@w")
 hadarprint("@x086|                           @REG@W.@G hsp report comm SpellTracker          @x086 |")
 hadarprint("@x086|                           @REG@W.@G hsp report main off                   @x086 |")
-hadarprint("@x086| @x214hsp seespells           @x110- @x214toggle seeing recasts                      @x086|@w")
-hadarprint("@x086| @x208hsp totem <spell>       @x110- @x208spell is either guidance or focus to recast@x086|@w")
-hadarprint("@x086| @x214hsp elementalfocus <ele>@x110- @x214change the element for elemental focus     @x086|@w")
-hadarprint("@x086| @x208hsp elementalward <ele> @x110- @x208change the element for elemental focus     @x086|@w")
+hadarprint("@x086| @x208hsp seespells           @x110- @x208toggle seeing recasts                      @x086|@w")
+hadarprint("@x086| @x214hsp totem <spell>       @x110- @x214spell is either guidance or focus to recast@x086|@w")
+hadarprint("@x086| @x208hsp elementalfocus <ele>@x110- @x208change the element for elemental focus     @x086|@w")
+hadarprint("@x086| @x214hsp elementalward <ele> @x110- @x214change the element for elemental ward      @x086|@w")
 hadarprint("@x086+----------------------------------------------------------------------+@w")
 end
 
