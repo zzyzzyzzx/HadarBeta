@@ -11,7 +11,7 @@
    save_state="y"
    date_written="2021-12-31 00:00:00"
    requires="4.00"
-   version="0.40"
+   version="0.41"
    >
 
 </plugin>
@@ -176,6 +176,15 @@
 	script="recoff"
 >
 </trigger>
+<trigger
+   enabled="y"
+   match="^\{skillgain\}(?<sn>[0-9]{1,3})\,(?<perc>[0-9]{1,3})$"
+   omit_from_output="y"
+   regexp="y"
+   script="hspskillgain"
+   sequence="100"
+  >
+  </trigger>
 
 </triggers>
 
@@ -231,6 +240,7 @@ dofile(GetInfo(60) .. "aardwolf_colors.lua")
 dofile(GetInfo(60).."telnet_options.lua")
 TelnetOptionOn(TELOPT_SPELLUP) -- fiendish recommends this way to enable the spellup tags silently
 TelnetOptionOn(20)
+TelnetOptionOn(TELOPT_SKILLGAINS)
 local currentState = -1 -- uninitialized
 local slistCommandSent = false
 
@@ -635,27 +645,9 @@ function affoff(name,line,wc)
 		return
 	end
 
-	if sn == 526 then
-		if Spellups["CG"]["elementfocus"] == 0 then
-			hadarprint("Element for elemental focus not set, attempting to cast with last focus","script")
-			cast_this(sn,tonumber(Spellups["AS"]["list"][sn]["type"]))
-		else
-			Spellups["QS"][sn] = Spellups["CG"]["elementfocus"]
-		end --end elementalfocus check
-		cast_spells()
-		return
-	end --end elemental focus recoverynumber
-
-	if sn == 530 then
-		if Spellups["CG"]["elementward"] == 0 then
-			hadarprint("Element for elemental ward not set, attempting to cast with last ward","script")
-			cast_this(sn,tonumber(Spellups["AS"]["list"][sn]["type"]))
-		else
-			Spellups["QS"][sn] = Spellups["CG"]["elementward"]
-		end --end elemental ward check
-		cast_spells()
-		return
-	end --end elemental ward recoverynumber
+	if sn == 121 then
+		Spellups["QS"][sn] = Spellups["AS"]["list"][sn]["name"]
+	end
 	
 	if Spellups["AS"]["list"][sn]["target"] == 2 or Spellups["AS"]["list"][sn]["target"] == 3 then
 		if currentState == 8 and Spellups["GL"]["autoaura"] == "yes" then
@@ -1275,6 +1267,14 @@ function hspsetward(str)
 	end
 end
 
+function hspskillgain(n,l,wc)
+	local sn = tonumber(wc.sn)
+	local pc = tonumber(wc.perc)
+	
+	
+	Spellups["AS"]["list"][sn]["prac"] = pc
+end
+
 function HadarHelp()
 hadarprint("@x086+-------------------------@g[@CA@cuto @CS@cpells @WV:"..GetPluginInfo (GetPluginID (), 19).."@G]@x086-------------------------+@w")
 hadarprint("@x086| @x214hsp help                @x110- @x214Displays this helpfile                     @x086|@w")
@@ -1296,12 +1296,9 @@ hadarprint("@x086| @x208hsp report <screen> <log>@x110- @x208screen main or comm
 hadarprint("@x086|                           @REG@W.@G hsp report comm SpellTracker          @x086 |")
 hadarprint("@x086|                           @REG@W.@G hsp report main off                   @x086 |")
 hadarprint("@x086| @x214hsp seespells           @x110- @x214toggle seeing recasts                      @x086|@w")
-
-hadarprint("@x086| hsp seespells           - toggle seeing recasts                      @x086|@w")
-
-hadarprint("@x086| hsp seespells           - toggle seeing recasts                      @x086|@w")
-hadarprint("@x086| hsp seespells           - toggle seeing recasts                      @x086|@w")
-hadarprint("@x086| hsp seespells           - toggle seeing recasts                      @x086|@w")
+hadarprint("@x086| @x208hsp totem <spell>       @x110- @x208spell is either guidance or focus to recast@x086|@w")
+hadarprint("@x086| @x214hsp elementalfocus <ele>@x110- @x214change the element for elemental focus     @x086|@w")
+hadarprint("@x086| @x208hsp elementalward <ele> @x110- @x208change the element for elemental focus     @x086|@w")
 hadarprint("@x086+----------------------------------------------------------------------+@w")
 end
 
