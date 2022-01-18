@@ -11,7 +11,7 @@
    save_state="y"
    date_written="2021-12-31 00:00:00"
    requires="4.00"
-   version="0.33"
+   version="0.34"
    >
 
 </plugin>
@@ -242,6 +242,10 @@ totem guidance/totem force use same cooldown?
 Scars tells you 'hey man, elemental focus and elemental ward need to be added to the 'castable in combat' list :)'
 
 make recovery message into commwindow/main window (custom message line, will need hadarmagic)
+
+special cast cases!
+elemental focus / elemental ward
+totem guidance / totem force
 
 fix the spacing on hsp noauto show
 
@@ -718,7 +722,7 @@ function cast_spells()
 				cast_this(i,ctype)
 			end
 		elseif currentState == 3 then
-			if tostring(table.find(i, Spellups["EX"]["noAuto"])) ~= nil then
+			if contains(Spellups["EX"]["noAuto"],i) == false then
 				if Spellups["AS"]["list"][i]["prac"] > 1 then 
 					if i == Spellups["EX"]["clanskill"] then
 						cast_this(i,ctype)
@@ -728,6 +732,7 @@ function cast_spells()
 					Spellups["QS"][i] = nil --if spell not practiced remove from queue
 				end
 			else
+				hadarprint(Spellups["AS"]["list"][i]["name"].." is noauto, removing","debug")
 				Spellups["QS"][i] = nil -- if spell noauto then remove from list
 			end
 		end
