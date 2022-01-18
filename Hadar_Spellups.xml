@@ -11,7 +11,7 @@
    save_state="y"
    date_written="2021-12-31 00:00:00"
    requires="4.00"
-   version="0.34"
+   version="0.35"
    >
 
 </plugin>
@@ -899,7 +899,7 @@ function contains(tableToSearch, value)
 	
 function noAutoList(sn)
 	sn = tonumber(sn) or string.lower(sn)
-  if type(sn) == "number" then
+	if type(sn) == "number" then
   		if contains(Spellups["EX"]["noAuto"], sn) then 
   			hadarprint("Removing "..sn.." from the NOAUTO list")
   			remove(Spellups["EX"]["noAuto"], sn)
@@ -911,29 +911,49 @@ function noAutoList(sn)
 		Spellups["EX"]["noAuto"] = {}
 		hadarprint("Your list of no cast spells has been cleared.","script")
 	elseif sn == "show" then
-		hadarprint("@W+@x086-------------@G[@CN@co @CA@cuto @CC@cast @CS@cpells@G]@x086------------@W+@w")
-		hadarprint("@W|    @CS@cpell @CN@cumber       @W|    @CS@cpell @Cn@came        @W|@w")
-		hadarprint("@W+@x086----------------------------------------------@W+@w")
+		hadarprint("@W+@x086--------------@G[@CN@co @CA@cuto @CC@cast @CS@cpells@G]@x086-------------@W+@w")
+		hadarprint("@W|      @CS@cpell @CN@cumber      @W|      @CS@cpell @Cn@came       @W|@w")
+		hadarprint("@W+@x086------------------------------------------------@W+@w")
 		if Spellups["EX"]["noAuto"][1] == nil then
 			hadarprint("@W|@c     No Spells are set to not autocast        @W|@w")
 			hadarprint("@W|@c     to set a spell use hsp autocast <number> @W|@w")
 		end
 		for i ,v in pairs(Spellups["EX"]["noAuto"]) do
-			hadarprint("@W|        @c"..v.."             @W|@c     "..Spellups["AS"]["list"][tonumber(v)]["name"].."     @W|@w")
+			local numbersize = 24-string.len(v)
+			local numberpad1 = math.ceil(numbersize/2)
+			local numberpad2 = math.floor(numbersize/2)
+			local shownumber = string.rep(" ",numberpad1)..v..string.rep(" ",numberpad2)
+
+			local wordsize = 23-string.len(Spellups["AS"]["list"][tonumber(v)]["name"])
+			local wordpad1 = math.ceil(wordsize/2)
+			local wordpad2 = math.floor(wordsize/2)
+			local showword = string.rep(" ",wordpad1)..Spellups["AS"]["list"][tonumber(v)]["name"]..string.rep(" ",wordpad2)
+			
+			hadarprint("@W|@c"..shownumber.."@W|@c"..showword.."@W|@w")
 		end
-		hadarprint("@W+@x086----------------------------------------------@W+@w")
+		hadarprint("@W+@x086------------------------------------------------@W+@w")
 	else
-		hadarprint("@W+@x086-------------@G[@CN@co @CA@cuto @CC@cast @CS@cpells@G]@x086------------@W+@w")
-		hadarprint("@W|    @CS@cpell @CN@cumber       @W|    @CS@cpell @Cn@came        @W|@w")
-		hadarprint("@W+@x086----------------------------------------------@W+@w")
+		hadarprint("@W+@x086--------------@G[@CN@co @CA@cuto @CC@cast @CS@cpells@G]@x086-------------@W+@w")
+		hadarprint("@W|      @CS@cpell @CN@cumber      @W|      @CS@cpell @Cn@came       @W|@w")
+		hadarprint("@W+@x086------------------------------------------------@W+@w")
 		if Spellups["EX"]["noAuto"][1] == nil then
 			hadarprint("@W|@c     No Spells are set to not autocast        @W|@w")
 			hadarprint("@W|@c     to set a spell use hsp autocast <number> @W|@w")
 		end
 		for i ,v in pairs(Spellups["EX"]["noAuto"]) do
-			hadarprint("@W|        @c"..v.."             @W|@c     "..Spellups["AS"]["list"][tonumber(v)]["name"].."     @W|@w")
+			local numbersize = 24-string.len(v)
+			local numberpad1 = math.ceil(numbersize/2)
+			local numberpad2 = math.floor(numbersize/2)
+			local shownumber = string.rep(" ",numberpad1)..v..string.rep(" ",numberpad2)
+
+			local wordsize = 23-string.len(Spellups["AS"]["list"][tonumber(v)]["name"])
+			local wordpad1 = math.ceil(wordsize/2)
+			local wordpad2 = math.floor(wordsize/2)
+			local showword = string.rep(" ",wordpad1)..Spellups["AS"]["list"][tonumber(v)]["name"]..string.rep(" ",wordpad2)
+			
+			hadarprint("@W|@c"..shownumber.."@W|@c"..showword.."@W|@w")
 		end
-		hadarprint("@W+@x086----------------------------------------------@W+@w")
+		hadarprint("@W+@x086------------------------------------------------@W+@w")
 	end
 end
 
