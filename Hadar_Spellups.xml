@@ -11,7 +11,7 @@
    save_state="y"
    date_written="2021-12-31 00:00:00"
    requires="4.00"
-   version="0.36"
+   version="0.38"
    >
 
 </plugin>
@@ -1244,53 +1244,31 @@ function hspsettotem(str)
 end
 
 function hspsetfocus(str)
-	--local arg, rest = str:match("([0-9.a-zA-Z]*)%s*(.*)")
-	--arg = string.lower(arg)
+	local arg, rest = str:match("([0-9.a-zA-Z]*)%s*(.*)")
+	arg = string.lower(arg)
+
+	if arg == "earth" or arg == "air" or arg == "fire" or arg == "water" then
+		Spellups["CG"]["elementfocus"] = arg
+		hadarprint("Elemental @rfocus@c set to: @G"..Spellups["CG"]["elementfocus"],"script")
+	else
+		hadarprint("You need to enter which element you want to cast @CEarth@c, @CAir@c, @CFire@c, @CWater @C... @GEG hsp elementalfocus fire@w","script")
+	end
 end
 
 function hspsetward(str)
-	--local arg, rest = str:match("([0-9.a-zA-Z]*)%s*(.*)")
-	--arg = string.lower(arg)
+	local arg, rest = str:match("([0-9.a-zA-Z]*)%s*(.*)")
+	arg = string.lower(arg)
+
+	if arg == "earth" or arg == "air" or arg == "fire" or arg == "water" then
+		Spellups["CG"]["elementward"] = arg
+		hadarprint("Elemental @Cward@c set to: @G"..Spellups["CG"]["elementfocus"],"script")
+	else
+		hadarprint("You need to enter which element you want to cast @CEarth@c, @CAir@c, @CFire@c, @CWater @C... @GEG hsp elementalward fire@w","script")
+	end
 end
 
-
---[[
-	if Spellups["CG"]["elementfocus"] == 0 then
-	hadarprint("Element for elemental focus not set, attempting to cast with last focus","script")
-	cast_this(skillnum,skilltype)
-else
-	if Spellups["GL"]["seespells"] == "yes" then
-		Send("cast '"..skillname.."'")
-	else
-		SendNoEcho("cast '"..skillname.."' "..Spellups["CG"]["elementfocus"])
-	end --end seespell check
-end --end elementalfocus check
-end --end elemental focus recoverynumber
-
-if sn == 55 then
-if Spellups["CG"]["elementward"] == 0 then
-	hadarprint("Element for elemental ward not set, attempting to cast with last ward","script")
-	cast_this(skillnum,skilltype)
-else
-	if Spellups["GL"]["seespells"] == "yes" then
-		Send("cast '"..skillname.."'")
-	else
-		SendNoEcho("cast '"..skillname.."' "..Spellups["CG"]["elementward"])
-	end --end seespell check
-end --end elemental ward check
-end --end elemental ward recoverynumber
-
-if sn == 16 then
-if Spellups["CG"]["totemcast"] == "force" then
-	if Spellups["GL"]["seespells"] == "yes" then
-		Send("cast 'totem force'")
-	else
-		SendNoEcho("cast 'totem force'")
-	end --end seespell check
-elseif Spellups["CG"]["totemcast"] == "guidance" then]]
-
 function HadarHelp()
-hadarprint("@x086+---------------------------@g[@CA@cuto @CS@cpells@G]@x086------------------------------+@w")
+hadarprint("@x086+-------------------------@g[@CA@cuto @CS@cpells @WV:"..GetPluginInfo (GetPluginID (), 19).."@G]@x086-------------------------+@w")
 hadarprint("@x086| @x214hsp help                @x110- @x214Displays this helpfile                     @x086|@w")
 hadarprint("@x086| @x208hsp noauto <number>     @x110- @x208number optional, sets a spellnumber to not @x086|@w")
 hadarprint("@x086|                           @x208be recast, no argument to see list         @x086|@w")
@@ -1299,17 +1277,17 @@ hadarprint("@x086| @x214hsp noauto clear        @x110- @x214clears your noauto l
 hadarprint("@x086| @x208hsp disable             @x110- @x208Turns the script on or off                 @x086|@w")
 hadarprint("@x086| @x214hsp autoaura <command>  @x110- Has multiple commands, they are:           @x086|@w")
 hadarprint("@x086|                         @x110-@x214 On  @x110-@x214 enables wearing aura in combat       @x086|@w")
-hadarprint("@x086|                         @x110-@x214 Off @x110-@x214 diables wearing aura in combat       @x086|@w")
+hadarprint("@x086|                         @x110-@x214 Off @x110-@x214 disables wearing aura in combat      @x086|@w")
 hadarprint("@x086|                         @x110-@x214 aura <itemid> @x110-@x214 set the id of your aura    @x086|@w")
 hadarprint("@x086|                         @x110-@x214 bag <itemid> @x110-@x214 set the id of bag with aura @x086|@w")
 hadarprint("@x086| @x208hsp set <thing>         @x110- @x208Sets the message output for reports        @x086|@w")
-hadarprint("@x086|                         @x110- @glogo@x110,@G 30@x110,@G 10                               @x086|@w")
+hadarprint("@x086|                         @x110- @glogo@x110,@g 30@x110,@g 10                               @x086|@w")
 hadarprint("@x086| @x214hsp channel <channel>   @x110- @x214no arguments displays the channel          @x086|@w")
 hadarprint("@x086|                           @REG@W.@G hsp channel spouse                     @x086|")
 hadarprint("@x086| @x208hsp report <screen> <log>@x110- @x208screen main or comm, log = comm log       @x086|@w")
 hadarprint("@x086|                           @REG@W.@G hsp report comm SpellTracker          @x086 |")
 hadarprint("@x086|                           @REG@W.@G hsp report main off                   @x086 |")
-hadarprint("@x086| @x214hsp seespells           @x110- @x214toggle seeing recasts                 @x086|@w")
+hadarprint("@x086| @x214hsp seespells           @x110- @x214toggle seeing recasts                      @x086|@w")
 hadarprint("@x086+----------------------------------------------------------------------+@w")
 end
 
