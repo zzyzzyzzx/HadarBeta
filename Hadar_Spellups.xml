@@ -11,7 +11,7 @@
    save_state="y"
    date_written="2021-12-31 00:00:00"
    requires="4.00"
-   version="0.39"
+   version="0.40"
    >
 
 </plugin>
@@ -638,28 +638,22 @@ function affoff(name,line,wc)
 	if sn == 526 then
 		if Spellups["CG"]["elementfocus"] == 0 then
 			hadarprint("Element for elemental focus not set, attempting to cast with last focus","script")
-			cast_this(skillnum,skilltype)
+			cast_this(sn,tonumber(Spellups["AS"]["list"][sn]["type"]))
 		else
-			if Spellups["GL"]["seespells"] == "yes" then
-				Send("cast '"..skillname.."' "..Spellups["CG"]["elementfocus"])
-			else
-				SendNoEcho("cast '"..skillname.."' "..Spellups["CG"]["elementfocus"])
-			end --end seespell check
+			Spellups["QS"][sn] = Spellups["CG"]["elementfocus"]
 		end --end elementalfocus check
+		cast_spells()
 		return
 	end --end elemental focus recoverynumber
 
 	if sn == 530 then
 		if Spellups["CG"]["elementward"] == 0 then
 			hadarprint("Element for elemental ward not set, attempting to cast with last ward","script")
-			cast_this(skillnum,skilltype)
+			cast_this(sn,tonumber(Spellups["AS"]["list"][sn]["type"]))
 		else
-			if Spellups["GL"]["seespells"] == "yes" then
-				Send("cast '"..skillname.."' "..Spellups["CG"]["elementward"])
-			else
-				SendNoEcho("cast '"..skillname.."' "..Spellups["CG"]["elementward"])
-			end --end seespell check
+			Spellups["QS"][sn] = Spellups["CG"]["elementward"]
 		end --end elemental ward check
+		cast_spells()
 		return
 	end --end elemental ward recoverynumber
 	
@@ -781,7 +775,19 @@ function cast_this(sn,ctype)
 	Spellups["QS"][sn] = nil
 	hadarprint("casting:"..sn,"debug")
 	
-	if ctype == 1 then
+	if sn == 526 then
+		if Spellups["GL"]["seespells"] == "yes" then
+			Send("cast '"..Spellups["AS"]["list"][sn]["name"].."' "..Spellups["CG"]["elementfocus"])
+		else
+			SendNoEcho("cast '"..Spellups["AS"]["list"][sn]["name"].."' "..Spellups["CG"]["elementfocus"])
+		end --end seespell check
+	elseif sn == 530 then
+		if Spellups["GL"]["seespells"] == "yes" then
+			Send("cast '"..Spellups["AS"]["list"][sn]["name"].."' "..Spellups["CG"]["elementward"])
+		else
+			SendNoEcho("cast '"..Spellups["AS"]["list"][sn]["name"].."' "..Spellups["CG"]["elementward"])
+		end --end seespell check
+	elseif ctype == 1 then
 		if Spellups["GL"]["seespells"] == "yes" then
 			Send("cast '"..Spellups["AS"]["list"][sn]["name"].."'")
 		else
@@ -1290,6 +1296,12 @@ hadarprint("@x086| @x208hsp report <screen> <log>@x110- @x208screen main or comm
 hadarprint("@x086|                           @REG@W.@G hsp report comm SpellTracker          @x086 |")
 hadarprint("@x086|                           @REG@W.@G hsp report main off                   @x086 |")
 hadarprint("@x086| @x214hsp seespells           @x110- @x214toggle seeing recasts                      @x086|@w")
+
+hadarprint("@x086| hsp seespells           - toggle seeing recasts                      @x086|@w")
+
+hadarprint("@x086| hsp seespells           - toggle seeing recasts                      @x086|@w")
+hadarprint("@x086| hsp seespells           - toggle seeing recasts                      @x086|@w")
+hadarprint("@x086| hsp seespells           - toggle seeing recasts                      @x086|@w")
 hadarprint("@x086+----------------------------------------------------------------------+@w")
 end
 
