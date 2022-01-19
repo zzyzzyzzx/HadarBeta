@@ -11,7 +11,7 @@
    save_state="y"
    date_written="2021-12-31 00:00:00"
    requires="4.00"
-   version="0.43"
+   version="0.44"
    >
 
 </plugin>
@@ -1112,6 +1112,11 @@ function recoff(n,l,wc)
 		else
 			hadarprint("Autocasting totem guidance or totem focus not set")
 		end
+	else
+		Spellups["QS"][skillnum] = Spellups["AS"]["list"][skillnum]["name"]
+		hadarprint("adding to queue (recovery off): "..Spellups["AS"]["list"][skillnum]["name"],"debug")
+	
+		cast_spells()
 	end --end elemental focus recoverynumber
 						
 end
