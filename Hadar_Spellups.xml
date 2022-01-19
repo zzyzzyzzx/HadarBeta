@@ -11,7 +11,7 @@
    save_state="y"
    date_written="2021-12-31 00:00:00"
    requires="4.00"
-   version="0.42"
+   version="0.43"
    >
 
 </plugin>
@@ -247,8 +247,24 @@ local slistCommandSent = false
 --[[
 TODO
 Handle cooldown(recoveries) skills/spells
+
+on recast, cast wraith form after haste/accel/sanc
 handle gaias focus? (cast focus then revenge)
-totem guidance/totem force use same cooldown?
+
+| You enter the borders of the realm of undeath.
+| Prepare for the transformation..........
+| Adding Wraith Resistance ...
+| Enhancing Attributes........
+| Adding Sanctuary............
+| Adding Detect Magic.........
+| Adding Detect Hidden........
+| Adding Detect Evil..........
+| Adding Detect Good..........
+| Adding Pass Door............
+| Adding Invisibility.........
+| Adding Hide.................
+| Adding Haste................
+| Transformation Complete.
 ]]
 
 function hadarprint(str,level)
@@ -327,7 +343,7 @@ end
 function OnPluginEnable ()
 
 	Spellups = {}
-    Spellups["GL"] = {}
+	Spellups["GL"] = {}
     Spellups["AS"] = {}
 	Spellups["AF"] = {} --affected by
 	Spellups["NA"] = {} --not affected by
@@ -338,11 +354,10 @@ function OnPluginEnable ()
 	Spellups["MS"] = {} --messages
 	Spellups["CG"] = {} --configs (mainly for special cases)
 	
-	
 	if GetVariable ("pastfirstinstall") == "true" then
 		assert (loadstring (GetVariable ("Spellups") or "")) ()
 	else
-          hadarprint("@CLooks like this is your first install, Lets get you setup! @Ghsp@C for help","script")
+		hadarprint("@CLooks like this is your first install, Lets get you setup! @Ghsp@C for help","script")
 		buildInitial()
 	end
 	
@@ -379,13 +394,13 @@ function buildInitial()
 	Spellups["AS"]["list"] = {}
 	Spellups["AF"]["list"] = {}
 	Spellups["EX"]["exceptions"] = { 
-	[53] = true, -- haste
-	[211] = true, -- berserk
-	[258] = true, -- accel
-	[259] = true, -- lightspeed
-	[335] = true, -- grey aura
-	[526] = true, -- elemental focus
-	[530] = true -- elemental ward
+	[1] = 53,
+	[2] = 211,
+	[3] = 258,
+	[4] = 259,
+	[5] = 335,
+	[6] = 526,
+	[7] = 530
 	}
 	Spellups["EX"]["noAuto"] = {}
     Spellups["AS"]["cSkills"] = {
@@ -463,6 +478,9 @@ function injectVars()
 	v["GL"]["seespells"] = "yes"
 
 	v["EX"]["clanskill"] = "none"
+	v["EX"]["Timer"] = {}
+	v["EX"]["thirtytimer"] = {}
+	v["EX"]["tentimer"] = {}
 	
 	v["RT"]["reverse"] = {}
 	
@@ -475,6 +493,7 @@ function injectVars()
 	v["CG"]["elementward"] = 0
 	v["CG"]["elementfocus"] = 0
 	v["CG"]["totemcast"] = 0
+
 
      for a,b in pairs(v) do
           for c,d in pairs(b) do
@@ -527,6 +546,13 @@ function SlistUpdate(name, line, wildcards)
 		hadarprint("SN:"..sn..", NM:"..nm..", TG:"..tg..", DU:"..du..", PC:"..pc..", RC:"..rc..", TY:"..ty,"debug")
 		Spellups["RT"][rc] = {skillnum = sn, name = nm, duration = du, type = ty, target = tg}
 		Spellups["RT"]["reverse"][sn] = {recovery = rc}
+		
+		
+		if GetVariable ("pastfirstinstall") == "false" then
+			table.insert(Spellups["EX"]["Timer"], sn)
+			Spellups["EX"]["thirtytimer"][sn] = "yes"
+			Spellups["EX"]["tentimer"][sn] = "yes"
+		end
 	end
 		
 end--end update
@@ -565,7 +591,7 @@ function HSPmain(name, line, wc)
 		hspSet(rest)
 	elseif first == "report" then
 		hspWindow(rest)
-	elseif first == "seespells" then
+	elseif first == "seespells" or first == "seespell" then
 		hspToggleSeeSpells()
 	elseif first == "totem" then
 		hspsettotem(rest)
@@ -573,9 +599,17 @@ function HSPmain(name, line, wc)
 		hspsetfocus(rest)
 	elseif first == "elementalward" then
 		hspsetward(rest)
+	elseif first == "combat" then
+		docombatexception(rest)
+	elseif first == "timer" then
+		hspdotimerexception(rest)
+	elseif first == "fullspellupreset" then
+		SetVariable ("pastfirstinstall", "false")
+		slistCommandSent = false
+		OnPluginEnable ()
 	else
 		HadarHelp()
-     end
+	end
 
 end
 
@@ -616,8 +650,8 @@ function affon(name, line, wc)
 		return
 	end
 	
-	if table.find(sn,Spellups["RT"]["reverse"]) ~= nil then
-		hadarprint("fired on lookup for RT/reverse","debug")
+	if table.find(sn,Spellups["EX"]["Timer"]) ~= nil then
+		hadarprint("fired on lookup for timer","debug")
 		recoveryup(sn,tm)
 	end
 	
@@ -733,7 +767,7 @@ function cast_spells()
         local ctype = tonumber(Spellups["AS"]["list"][i]["type"])
 
 		if Spellups["GL"]["exceptions"] == "yes" and currentState == 8 then
-			if table.find(i,Spellups["EX"]["exceptions"]) ~= nil then
+			if contains(Spellups["EX"]["exceptions"], i) then
 				hadarprint("found exception","debug")
 				cast_this(i,ctype)
 			end
@@ -935,10 +969,10 @@ function noAutoList(sn)
 	sn = tonumber(sn) or string.lower(sn)
 	if type(sn) == "number" then
   		if contains(Spellups["EX"]["noAuto"], sn) then 
-  			hadarprint("Removing "..sn.." from the NOAUTO list")
+  			hadarprint("Removing "..Spellups["AS"]["list"][sn]["name"].." from the NOAUTO list","script")
   			remove(Spellups["EX"]["noAuto"], sn)
   		else
-			hadarprint("Adding "..sn.." to the NOAUTO list")	
+			hadarprint("Adding "..Spellups["AS"]["list"][sn]["name"].." to the NOAUTO list","script")	
   			table.insert(Spellups["EX"]["noAuto"], sn)
   		end
 	elseif sn == "clear" then
@@ -1018,12 +1052,11 @@ function recoveryup(sn,timer)
 	
 	local sn = tonumber(sn)
 	local tm = tonumber(timer)
-	local num = Spellups["RT"]["reverse"][sn]["recovery"]
 	local uptime1 = tm - 30
 	local uptime2 = tm - 10
 	
-	local firstwarn = "warn_30_"..num
-	local secondwarn = "warn_10_"..num
+	local firstwarn = "warn_30_"..sn
+	local secondwarn = "warn_10_"..sn
 	
 	local remaining1 = uptime1 % 86400
 	local hours1 = math.floor(remaining1/3600)
@@ -1041,11 +1074,11 @@ function recoveryup(sn,timer)
 	hadarprint("1)"..firstwarn..":"..uptime1.." hours:"..hours1..", minutes:"..minutes1..", seconds:"..seconds1,"debug")
 	hadarprint("2)"..secondwarn..":"..uptime2.." hours:"..hours2..", minutes:"..minutes2..", seconds:"..seconds2,"debug")
 	
-	if Spellups["GL"]["thirtytimer"] == "yes" then
+	if Spellups["EX"]["thirtytimer"][sn] == "yes" then
 		check(AddTimer (firstwarn, hours1, minutes1, seconds1, "", timer_flag.Enabled+timer_flag.OneShot+timer_flag.Replace, "rcwarning"))
 	end
 
-	if Spellups["GL"]["tentimer"] == "yes" then
+	if Spellups["EX"]["tentimer"][sn] == "yes" then
 		check(AddTimer (secondwarn, hours2, minutes2, seconds2, "", timer_flag.Enabled+timer_flag.OneShot+timer_flag.Replace, "rcwarning"))
 	end
 end
@@ -1085,12 +1118,13 @@ end
 
 function rcwarning(arg)
 	local t = utils.split(arg,"_")
+	local nm = Spellups["AS"]["list"][tonumber(t[3])]["name"]
 	local message
 	
 	if t[2] == "30" then
-		message = interp(Spellups["MS"]["thirty"], {logo = Spellups["MS"]["logo"], spell = Spellups["RT"][tonumber(t[3])]["name"]})
+		message = interp(Spellups["MS"]["thirty"], {logo = Spellups["MS"]["logo"], spell = nm})
 	elseif t[2] == "10" then
-		message = interp(Spellups["MS"]["ten"], {logo = Spellups["MS"]["logo"], spell = Spellups["RT"][tonumber(t[3])]["name"]})
+		message = interp(Spellups["MS"]["ten"], {logo = Spellups["MS"]["logo"], spell = nm})
 	else
 		message = "danger will robinson i dont know how i got here!"
 	end
@@ -1271,6 +1305,161 @@ function hspskillgain(n,l,wc)
 	
 	
 	Spellups["AS"]["list"][sn]["prac"] = pc
+end
+
+function hspdotimerexception(str)
+	local arg, rest = str:match("([0-9.a-zA-Z]*)%s*(.*)")
+	arg = tonumber(arg) or string.lower(arg)
+
+
+	if type(arg) == "number" then
+		if contains(Spellups["EX"]["Timer"], arg) then 
+			hadarprint("Removing "..Spellups["AS"]["list"][arg]["name"].." from the timers list","script")
+			remove(Spellups["EX"]["Timer"], arg)
+			Spellups["EX"]["thirtytimer"][arg] = "no"
+			Spellups["EX"]["tentimer"][arg] = "no"
+		else
+			hadarprint("Adding "..Spellups["AS"]["list"][arg]["name"].." to the timers list, turned on 30 second warning, and 10 second warning","script")	
+			table.insert(Spellups["EX"]["Timer"], arg)
+			Spellups["EX"]["thirtytimer"][arg] = "yes"
+			Spellups["EX"]["tentimer"][arg] = "yes"
+		end
+	elseif arg == "set" then
+		addorremovetimers(rest)
+	else
+		hadarprint("@W+@x086------------------------------@G[@CS@cpell @CT@cimers]------------------------------@W+@w")
+		hadarprint("@W|      @CS@cpell @CN@cumber      @W|      @CS@cpell @Cn@came        @W|     @CA@cctive @CT@cimer@x086'@cs     @W|@w")
+		hadarprint("@W+@x086--------------------------------------------------------------------------@W+@w")
+	
+		if Spellups["EX"]["Timer"][1] == nil then
+			hadarprint("@W|@c     No Spells are set to have a timer        @W|@w")
+		end
+
+		for i ,v in pairs(Spellups["EX"]["Timer"]) do
+			local timerstring1 = nil
+			local timerstring2 = nil
+			local timerstring3
+			local timerstring3nude
+			if Spellups["EX"]["thirtytimer"][v] == "yes" then
+				timerstring1 = "yes"
+			end
+
+			if Spellups["EX"]["tentimer"][v] == "yes" then
+				timerstring2 = "yes"
+			end
+
+			if timerstring1 == nil and timerstring2 == nil then
+				timerstring3 = "@Rnone"
+				timerstring3nude = "none"
+			elseif timerstring1 == "yes" and timerstring2 == nil then
+				timerstring3 = "@G30"
+				timerstring3nude = "30"
+			elseif timerstring1 == nil and timerstring2 == "yes" then
+				timerstring3 = "@g10"
+				timerstring3nude = "10"
+			elseif timerstring1 == "yes" and timerstring2 == "yes" then
+				timerstring3 = "@G30@W,@G10"
+				timerstring3nude = "30,10"
+			end
+
+
+			local numbersize = 24-string.len(v)
+			local numberpad1 = math.ceil(numbersize/2)
+			local numberpad2 = math.floor(numbersize/2)
+			local shownumber = string.rep(" ",numberpad1)..v..string.rep(" ",numberpad2)
+
+			local wordsize = 24-string.len(Spellups["AS"]["list"][tonumber(v)]["name"])
+			local wordpad1 = math.ceil(wordsize/2)
+			local wordpad2 = math.floor(wordsize/2)
+			local showword = string.rep(" ",wordpad1)..Spellups["AS"]["list"][tonumber(v)]["name"]..string.rep(" ",wordpad2)
+
+			local timersize = 24-string.len(timerstring3nude)
+			local timerpad1 = math.ceil(timersize/2)
+			local timerpad2 = math.floor(timersize/2)
+			local showtimer = string.rep(" ",timerpad1)..timerstring3..string.rep(" ",timerpad2)
+			
+			hadarprint("@W|@c"..shownumber.."@W|@c"..showword.."@W|@c"..showtimer.."@W|@w")
+		end
+		hadarprint("@W+@x086--------------------------------------------------------------------------@W+@w")
+		
+	end
+end
+
+function addorremovetimers(str)
+	local arg, rest = str:match("([0-9.a-zA-Z]*)%s*(.*)")
+	arg = tonumber(arg) or string.lower(arg)
+	rest = tonumber(rest) or string.lower(rest)
+	
+	if type(arg) ~= "number" then
+		hadarprint("Expected number, Syntax is hsp exception timer set <skill number> 10 or hsp exception timer set <skill number> 30","script")
+		return
+	end
+	
+	if type(rest) ~= "number" then
+		hadarprint("Expected number, Syntax is hsp exception timer set <skill number> 10 or hsp exception timer set <skill number> 30","script")
+		return
+	end
+
+	if rest == 10 then 
+		if Spellups["EX"]["tentimer"][arg] == "yes" then
+			Spellups["EX"]["tentimer"][arg] = "no"
+			hadarprint("10 second timer @RDISABLED@c for "..Spellups["AS"]["list"][arg]["name"],"script")
+		else
+			Spellups["EX"]["tentimer"][arg] = "yes"
+			hadarprint("10 second timer @GENABLED@c for "..Spellups["AS"]["list"][arg]["name"],"script")
+		end
+	end
+
+	if rest == 30 then 
+		if Spellups["EX"]["thirtytimer"][arg] == "yes" then
+			Spellups["EX"]["thirtytimer"][arg] = "no"
+			hadarprint("30 second timer @RDISABLED@c for "..Spellups["AS"]["list"][arg]["name"],"script")
+		else
+			Spellups["EX"]["thirtytimer"][arg] = "yes"
+			hadarprint("30 second timer @GENABLED@c for "..Spellups["AS"]["list"][arg]["name"],"script")
+		end
+	end
+end
+
+function docombatexception(str)
+	local arg, rest = str:match("([0-9.a-zA-Z]*)%s*(.*)")
+	arg = tonumber(arg) or string.lower(arg)
+
+
+	if type(arg) == "number" then
+		if contains(Spellups["EX"]["exceptions"], arg) then 
+			hadarprint("Removing "..Spellups["AS"]["list"][arg]["name"].." from the exceptions list","script")
+			remove(Spellups["EX"]["exceptions"], arg)
+		else
+		  hadarprint("Adding "..Spellups["AS"]["list"][arg]["name"].." to the exceptions list","script")	
+			table.insert(Spellups["EX"]["exceptions"], arg)
+		end
+	else
+		hadarprint("@W+@x086---------------@G[@CC@combat @CE@cxceptions@G]@x086--------------@W+@w")
+		hadarprint("@W|      @CS@cpell @CN@cumber      @W|      @CS@cpell @Cn@came       @W|@w")
+		hadarprint("@W+@x086------------------------------------------------@W+@w")
+	
+		if Spellups["EX"]["exceptions"][1] == nil then
+			hadarprint("@W|@c     No Spells are set to not autocast        @W|@w")
+			hadarprint("@W|@c     to set a spell use hsp autocast <number> @W|@w")
+		end
+
+		for i ,v in pairs(Spellups["EX"]["exceptions"]) do
+			local numbersize = 24-string.len(v)
+			local numberpad1 = math.ceil(numbersize/2)
+			local numberpad2 = math.floor(numbersize/2)
+			local shownumber = string.rep(" ",numberpad1)..v..string.rep(" ",numberpad2)
+
+			local wordsize = 23-string.len(Spellups["AS"]["list"][tonumber(v)]["name"])
+			local wordpad1 = math.ceil(wordsize/2)
+			local wordpad2 = math.floor(wordsize/2)
+			local showword = string.rep(" ",wordpad1)..Spellups["AS"]["list"][tonumber(v)]["name"]..string.rep(" ",wordpad2)
+			
+			hadarprint("@W|@c"..shownumber.."@W|@c"..showword.."@W|@w")
+		end
+
+		hadarprint("@W+@x086------------------------------------------------@W+@w")
+	end
 end
 
 function HadarHelp()
