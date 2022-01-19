@@ -11,7 +11,7 @@
    save_state="y"
    date_written="2021-12-31 00:00:00"
    requires="4.00"
-   version="0.44"
+   version="0.45"
    >
 
 </plugin>
@@ -675,7 +675,7 @@ function affoff(name,line,wc)
 		Spellups["QS"][sn] = Spellups["AS"]["list"][sn]["name"]
 	end
 	
-	if Spellups["AS"]["list"][sn]["target"] == 2 or Spellups["AS"]["list"][sn]["target"] == 3 then
+	if Spellups["AS"]["list"][sn]["target"] == 2 or Spellups["AS"]["list"][sn]["target"] == 3 or sn == Spellups["EX"]["clanskill"] then
 		if currentState == 8 and Spellups["GL"]["autoaura"] == "yes" then
 			if sn == 71 or sn == 102 or sn == 180 then
 				if sn == 71 or sn == 102 then
