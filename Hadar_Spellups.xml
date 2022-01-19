@@ -4,14 +4,14 @@
 <muclient>
 <plugin
    name="Hadar_Spellup_Caster"
-   author="Hadar, Khadaji"
+   author="Hadar"
    id="d2b6d276d6d22cf20d77d46f"
    language="Lua"
    purpose="Spellup Script"
    save_state="y"
    date_written="2021-12-31 00:00:00"
    requires="4.00"
-   version="0.45"
+   version="0.46"
    >
 
 </plugin>
@@ -245,26 +245,22 @@ local currentState = -1 -- uninitialized
 local slistCommandSent = false
 
 --[[
+
+Special thanks to:
+Khadaji, assisted in adding in some functions
+scars, tester
+ladydragon, tester
+Saori, tester
+
+]]
+
+--[[
 TODO
 Handle cooldown(recoveries) skills/spells
 
 on recast, cast wraith form after haste/accel/sanc
 handle gaias focus? (cast focus then revenge)
 
-| You enter the borders of the realm of undeath.
-| Prepare for the transformation..........
-| Adding Wraith Resistance ...
-| Enhancing Attributes........
-| Adding Sanctuary............
-| Adding Detect Magic.........
-| Adding Detect Hidden........
-| Adding Detect Evil..........
-| Adding Detect Good..........
-| Adding Pass Door............
-| Adding Invisibility.........
-| Adding Hide.................
-| Adding Haste................
-| Transformation Complete.
 ]]
 
 function hadarprint(str,level)
@@ -481,6 +477,7 @@ function injectVars()
 	v["EX"]["Timer"] = {}
 	v["EX"]["thirtytimer"] = {}
 	v["EX"]["tentimer"] = {}
+	v["EX"]["wraithform"] = {}
 	
 	v["RT"]["reverse"] = {}
 	
@@ -607,6 +604,8 @@ function HSPmain(name, line, wc)
 		SetVariable ("pastfirstinstall", "false")
 		slistCommandSent = false
 		OnPluginEnable ()
+	elseif first == "wraith" then
+		hspsetwraith(rest)
 	else
 		HadarHelp()
 	end
@@ -650,7 +649,7 @@ function affon(name, line, wc)
 		return
 	end
 	
-	if table.find(sn,Spellups["EX"]["Timer"]) ~= nil then
+	if contains(Spellups["EX"]["Timer"],sn) then
 		hadarprint("fired on lookup for timer","debug")
 		recoveryup(sn,tm)
 	end
@@ -773,10 +772,7 @@ function cast_spells()
 			end
 		elseif currentState == 3 then
 			if contains(Spellups["EX"]["noAuto"],i) == false then
-				if Spellups["AS"]["list"][i]["prac"] > 1 then 
-					if i == Spellups["EX"]["clanskill"] then
-						cast_this(i,ctype)
-					end
+				if Spellups["AS"]["list"][i]["prac"] > 1 or i == Spellups["EX"]["clanskill"] then 
 					cast_this(i,ctype)
 				else
 					Spellups["QS"][i] = nil --if spell not practiced remove from queue
@@ -1075,10 +1071,12 @@ function recoveryup(sn,timer)
 	hadarprint("2)"..secondwarn..":"..uptime2.." hours:"..hours2..", minutes:"..minutes2..", seconds:"..seconds2,"debug")
 	
 	if Spellups["EX"]["thirtytimer"][sn] == "yes" then
+		hadarprint("Added 30 timer for: "..firstwarn,"debug")
 		check(AddTimer (firstwarn, hours1, minutes1, seconds1, "", timer_flag.Enabled+timer_flag.OneShot+timer_flag.Replace, "rcwarning"))
 	end
 
 	if Spellups["EX"]["tentimer"][sn] == "yes" then
+		hadarprint("Added 10 timer for: "..secondwarn,"debug")
 		check(AddTimer (secondwarn, hours2, minutes2, seconds2, "", timer_flag.Enabled+timer_flag.OneShot+timer_flag.Replace, "rcwarning"))
 	end
 end
@@ -1125,6 +1123,8 @@ function rcwarning(arg)
 	local t = utils.split(arg,"_")
 	local nm = Spellups["AS"]["list"][tonumber(t[3])]["name"]
 	local message
+
+	hadarprint("1:"..t[1].." 2:"..t[2].." 3:"..t[3].." nm:"..nm,"debug")
 	
 	if t[2] == "30" then
 		message = interp(Spellups["MS"]["thirty"], {logo = Spellups["MS"]["logo"], spell = nm})
@@ -1465,6 +1465,62 @@ function docombatexception(str)
 
 		hadarprint("@W+@x086------------------------------------------------@W+@w")
 	end
+end
+
+function hspsetwraith(str)
+	local arg, rest = str:match("([0-9.a-zA-Z]*)%s*(.*)")
+	arg = tonumber(arg) or string.lower(arg)
+--[[
+| You enter the borders of the realm of undeath.
+| Prepare for the transformation..........
+| Adding Wraith Resistance ...
+| Enhancing Attributes........
+| Adding Sanctuary............71
+| Adding Detect Magic.........178/35
+| Adding Detect Hidden........178/33
+| Adding Detect Evil..........178/31
+| Adding Detect Good..........178/32
+| Adding Pass Door............64
+| Adding Invisibility.........58
+| Adding Hide.................306
+| Adding Haste................53
+| Transformation Complete.
+]]
+
+if type(arg) == "number" then
+	if contains(Spellups["EX"]["wraithform"], arg) then 
+		hadarprint("Removing "..Spellups["AS"]["list"][arg]["name"].." from the wraith form list","script")
+		remove(Spellups["EX"]["wraithform"], arg)
+	else
+	  hadarprint("Adding "..Spellups["AS"]["list"][arg]["name"].." to the wraith form list","script")	
+		table.insert(Spellups["EX"]["wraithform"], arg)
+	end
+else
+	hadarprint("@W+@x086---------------@G[@CC@combat @CE@cxceptions@G]@x086--------------@W+@w")
+	hadarprint("@W|      @CS@cpell @CN@cumber      @W|      @CS@cpell @Cn@came       @W|@w")
+	hadarprint("@W+@x086------------------------------------------------@W+@w")
+
+	if Spellups["EX"]["wraithform"][1] == nil then
+		hadarprint("@W|@c No Spells are set to cast before wraith form @W|@w")
+		hadarprint("@W|@c  to set a spell use hsp wraithform <number>  @W|@w")
+	end
+
+	for i ,v in pairs(Spellups["EX"]["wraithform"]) do
+		local numbersize = 24-string.len(v)
+		local numberpad1 = math.ceil(numbersize/2)
+		local numberpad2 = math.floor(numbersize/2)
+		local shownumber = string.rep(" ",numberpad1)..v..string.rep(" ",numberpad2)
+
+		local wordsize = 23-string.len(Spellups["AS"]["list"][tonumber(v)]["name"])
+		local wordpad1 = math.ceil(wordsize/2)
+		local wordpad2 = math.floor(wordsize/2)
+		local showword = string.rep(" ",wordpad1)..Spellups["AS"]["list"][tonumber(v)]["name"]..string.rep(" ",wordpad2)
+		
+		hadarprint("@W|@c"..shownumber.."@W|@c"..showword.."@W|@w")
+	end
+
+	hadarprint("@W+@x086------------------------------------------------@W+@w")
+end
 end
 
 function HadarHelp()
