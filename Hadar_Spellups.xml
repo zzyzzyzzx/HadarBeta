@@ -11,7 +11,7 @@
    save_state="y"
    date_written="2021-12-31 00:00:00"
    requires="4.00"
-   version="0.46"
+   version="0.47"
    >
 
 </plugin>
@@ -267,10 +267,10 @@ function hadarprint(str,level)
 
 	if level == "debug" then
 		if Spellups["GL"]["Debug"] == "yes" then
-			AnsiNote(ColoursToANSI("@G[@YDEBUG@G]@W:@w"..str))
+			AnsiNote(ColoursToANSI("@G[@YHSP DEBUG@G]@W:@w"..str))
 		end
 	elseif level == "error" then
-          AnsiNote(ColoursToANSI("@R[@Mhsu @rERROR@R]@W:@w"..str))
+          AnsiNote(ColoursToANSI("@R[@Mhsp @rERROR@R]@W:@w"..str))
      elseif level == "script" then
 		if type(str) == "table" then
 			tprint(str)
@@ -490,6 +490,7 @@ function injectVars()
 	v["CG"]["elementward"] = 0
 	v["CG"]["elementfocus"] = 0
 	v["CG"]["totemcast"] = 0
+	v["CG"]["gaiasfocus"] = 0
 
 
      for a,b in pairs(v) do
@@ -593,9 +594,9 @@ function HSPmain(name, line, wc)
 	elseif first == "totem" then
 		hspsettotem(rest)
 	elseif first == "elementalfocus" then
-		hspsetfocus(rest)
+		hspsetelementalfocus(rest)
 	elseif first == "elementalward" then
-		hspsetward(rest)
+		hspsetelementalward(rest)
 	elseif first == "combat" then
 		docombatexception(rest)
 	elseif first == "timer" then
@@ -606,6 +607,8 @@ function HSPmain(name, line, wc)
 		OnPluginEnable ()
 	elseif first == "wraith" then
 		hspsetwraith(rest)
+	elseif first == "gaiasfocus" then
+		hspsetgaiasfocus(rest)
 	else
 		HadarHelp()
 	end
@@ -665,6 +668,10 @@ end
 
 function affoff(name,line,wc)
 	local sn = tonumber(wc.sn)
+	local wraithcastable = false
+	local wraithcounted = 0
+
+	Spellups["AF"]["list"][sn] = nil
 	
 	if Spellups["GL"]["disabled"] == "yes" then
 		return
@@ -672,6 +679,57 @@ function affoff(name,line,wc)
 
 	if sn == 121 then
 		Spellups["QS"][sn] = Spellups["AS"]["list"][sn]["name"]
+	end
+
+	--[[
+| You enter the borders of the realm of undeath.
+| Prepare for the transformation..........
+| Adding Wraith Resistance ...
+| Enhancing Attributes........
+| Adding Sanctuary............71
+| Adding Detect Magic.........178/35
+| Adding Detect Hidden........178/33
+| Adding Detect Evil..........178/31
+| Adding Detect Good..........178/32
+| Adding Pass Door............64
+| Adding Invisibility.........58
+| Adding Hide.................306
+| Adding Haste................53
+| Transformation Complete.
+Spellups["EX"]["wraithform"]
+]]
+
+	if sn == 180 then
+		for i,v in pairs(Spellups["EX"]["wraithform"]) do
+
+			if table.find(v,Spellups["AF"]["list"]) then
+				--left empty becaue
+			else
+				local ctype = tonumber(Spellups["AS"]["list"][i]["type"])
+				cast_this(v,ctype)
+			end
+
+		end--end for loop
+	end
+
+	if sn == 552 then
+		if table.find(518,Spellups["AF"]["list"]) then
+			--left empty becaue
+		else
+			local ctypefocus = tonumber(Spellups["AS"]["list"][552]["type"])
+			local ctyperevenge = tonumber(Spellups["AS"]["list"][518]["type"])
+			cast_this(552,ctype)
+			cast_this(518,ctype)
+		end
+	end
+
+	if sn == 518 then
+		if table.find(552,Spellups["AF"]["list"]) then
+			--left empty becaue
+		else
+			local ctype = tonumber(Spellups["AS"]["list"][552]["type"])
+			cast_this(552,ctype)
+		end
 	end
 	
 	if Spellups["AS"]["list"][sn]["target"] == 2 or Spellups["AS"]["list"][sn]["target"] == 3 or sn == Spellups["EX"]["clanskill"] then
@@ -788,38 +846,33 @@ end
 function cast_this(sn,ctype)
 	Spellups["QS"][sn] = nil
 	hadarprint("casting:"..sn,"debug")
+	local castline = nil
 	
-	if sn == 526 then
-		if Spellups["GL"]["seespells"] == "yes" then
-			Send("cast '"..Spellups["AS"]["list"][sn]["name"].."' "..Spellups["CG"]["elementfocus"])
+	if sn == 552 then
+		if Spellups["CG"]["gaiasfocus"] == 0 then
+			castline = "cast '"..Spellups["AS"]["list"][sn]["name"]
 		else
-			SendNoEcho("cast '"..Spellups["AS"]["list"][sn]["name"].."' "..Spellups["CG"]["elementfocus"])
-		end --end seespell check
+			castline = "cast '"..Spellups["AS"]["list"][sn]["name"].." "..Spellups["CG"]["gaiasfocus"]
+		end
+	elseif sn == 526 then
+		castline = "cast '"..Spellups["AS"]["list"][sn]["name"].."' "..Spellups["CG"]["elementfocus"]
 	elseif sn == 530 then
-		if Spellups["GL"]["seespells"] == "yes" then
-			Send("cast '"..Spellups["AS"]["list"][sn]["name"].."' "..Spellups["CG"]["elementward"])
-		else
-			SendNoEcho("cast '"..Spellups["AS"]["list"][sn]["name"].."' "..Spellups["CG"]["elementward"])
-		end --end seespell check
+		castline = "cast '"..Spellups["AS"]["list"][sn]["name"].."' "..Spellups["CG"]["elementward"]
 	elseif ctype == 1 then
-		if Spellups["GL"]["seespells"] == "yes" then
-			Send("cast '"..Spellups["AS"]["list"][sn]["name"].."'")
-		else
-			SendNoEcho("cast '"..Spellups["AS"]["list"][sn]["name"].."'")
-		end
+		castline = "cast '"..Spellups["AS"]["list"][sn]["name"].."'"
 	elseif sn == 226 and ctype == 2 then
-		if Spellups["GL"]["seespells"] == "yes" then
-			Send("trace")
-		else
-			SendNoEcho("trace")
-		end
+		castline = "trace"
 	elseif ctype == 2 then
 		local t = utils.split(Spellups["AS"]["list"][sn]["name"]," ",2)
+		castline = t[1]
+	end
+	
+	if castline ~= nil then
 		if Spellups["GL"]["seespells"] == "yes" then
-			Send(t[1])
+			Send(castline)
 		else
-			SendNoEcho(t[1])
-		end
+			SendNoEcho(castline)
+		end 
 	end
 end
 
@@ -829,6 +882,15 @@ function table.find(val, tbl)
 		return tbl[val]
 	end
 	return nil
+end
+
+function table.count(tbl)
+	tbl = tbl or {}
+	local tblcount = 0
+	for i,v in pairs(tbl) do
+		tblcount = tblcount + 1
+	end
+	return tblcount
 end
 
 function HSPDisable(arg)
@@ -1280,7 +1342,7 @@ function hspsettotem(str)
 	end
 end
 
-function hspsetfocus(str)
+function hspsetelementalfocus(str)
 	local arg, rest = str:match("([0-9.a-zA-Z]*)%s*(.*)")
 	arg = string.lower(arg)
 
@@ -1292,7 +1354,7 @@ function hspsetfocus(str)
 	end
 end
 
-function hspsetward(str)
+function hspsetelementalward(str)
 	local arg, rest = str:match("([0-9.a-zA-Z]*)%s*(.*)")
 	arg = string.lower(arg)
 
@@ -1301,6 +1363,18 @@ function hspsetward(str)
 		hadarprint("Elemental @Cward@c set to: @G"..Spellups["CG"]["elementfocus"],"script")
 	else
 		hadarprint("You need to enter which element you want to cast @CEarth@c, @CAir@c, @CFire@c, @CWater @C... @GEG hsp elementalward fire@w","script")
+	end
+end
+
+function hspsetgaiasfocus(str)
+	local arg, rest = str:match("([0-9.a-zA-Z]*)%s*(.*)")
+	arg = string.lower(arg)
+
+	if arg == "earth" or arg == "air" or arg == "cold" or arg == "water" or arg == "electric" then
+		Spellups["CG"]["gaiasfocus"] = arg
+		hadarprint("Gaia's @Cfocus@c set to: @G"..Spellups["CG"]["gaiasfocus"],"script")
+	else
+		hadarprint("You need to enter which element you want to cast @CEarth@c, @CAir@c, @CCold@c, @CWater@c, @CElectric @C... @GEG hsp elementalward fire@w","script")
 	end
 end
 
@@ -1470,57 +1544,41 @@ end
 function hspsetwraith(str)
 	local arg, rest = str:match("([0-9.a-zA-Z]*)%s*(.*)")
 	arg = tonumber(arg) or string.lower(arg)
---[[
-| You enter the borders of the realm of undeath.
-| Prepare for the transformation..........
-| Adding Wraith Resistance ...
-| Enhancing Attributes........
-| Adding Sanctuary............71
-| Adding Detect Magic.........178/35
-| Adding Detect Hidden........178/33
-| Adding Detect Evil..........178/31
-| Adding Detect Good..........178/32
-| Adding Pass Door............64
-| Adding Invisibility.........58
-| Adding Hide.................306
-| Adding Haste................53
-| Transformation Complete.
-]]
 
-if type(arg) == "number" then
-	if contains(Spellups["EX"]["wraithform"], arg) then 
-		hadarprint("Removing "..Spellups["AS"]["list"][arg]["name"].." from the wraith form list","script")
-		remove(Spellups["EX"]["wraithform"], arg)
+	if type(arg) == "number" then
+		if contains(Spellups["EX"]["wraithform"], arg) then 
+			hadarprint("Removing "..Spellups["AS"]["list"][arg]["name"].." from the wraith form list","script")
+			remove(Spellups["EX"]["wraithform"], arg)
+		else
+	  		hadarprint("Adding "..Spellups["AS"]["list"][arg]["name"].." to the wraith form list","script")	
+			table.insert(Spellups["EX"]["wraithform"], arg)
+		end
 	else
-	  hadarprint("Adding "..Spellups["AS"]["list"][arg]["name"].." to the wraith form list","script")	
-		table.insert(Spellups["EX"]["wraithform"], arg)
-	end
-else
-	hadarprint("@W+@x086---------------@G[@CC@combat @CE@cxceptions@G]@x086--------------@W+@w")
-	hadarprint("@W|      @CS@cpell @CN@cumber      @W|      @CS@cpell @Cn@came       @W|@w")
-	hadarprint("@W+@x086------------------------------------------------@W+@w")
+		hadarprint("@W+@x086---------------@G[@CC@combat @CE@cxceptions@G]@x086--------------@W+@w")
+		hadarprint("@W|      @CS@cpell @CN@cumber      @W|      @CS@cpell @Cn@came       @W|@w")
+		hadarprint("@W+@x086------------------------------------------------@W+@w")
 
-	if Spellups["EX"]["wraithform"][1] == nil then
-		hadarprint("@W|@c No Spells are set to cast before wraith form @W|@w")
-		hadarprint("@W|@c  to set a spell use hsp wraithform <number>  @W|@w")
-	end
+		if Spellups["EX"]["wraithform"][1] == nil then
+			hadarprint("@W|@c  No Spells are set to cast before wraith form  @W|@w")
+			hadarprint("@W|@c   to set a spell use hsp wraith <number>       @W|@w")
+		end
 
-	for i ,v in pairs(Spellups["EX"]["wraithform"]) do
-		local numbersize = 24-string.len(v)
-		local numberpad1 = math.ceil(numbersize/2)
-		local numberpad2 = math.floor(numbersize/2)
-		local shownumber = string.rep(" ",numberpad1)..v..string.rep(" ",numberpad2)
+		for i ,v in pairs(Spellups["EX"]["wraithform"]) do
+			local numbersize = 24-string.len(v)
+			local numberpad1 = math.ceil(numbersize/2)
+			local numberpad2 = math.floor(numbersize/2)
+			local shownumber = string.rep(" ",numberpad1)..v..string.rep(" ",numberpad2)
 
-		local wordsize = 23-string.len(Spellups["AS"]["list"][tonumber(v)]["name"])
-		local wordpad1 = math.ceil(wordsize/2)
-		local wordpad2 = math.floor(wordsize/2)
-		local showword = string.rep(" ",wordpad1)..Spellups["AS"]["list"][tonumber(v)]["name"]..string.rep(" ",wordpad2)
+			local wordsize = 23-string.len(Spellups["AS"]["list"][tonumber(v)]["name"])
+			local wordpad1 = math.ceil(wordsize/2)
+			local wordpad2 = math.floor(wordsize/2)
+			local showword = string.rep(" ",wordpad1)..Spellups["AS"]["list"][tonumber(v)]["name"]..string.rep(" ",wordpad2)
 		
-		hadarprint("@W|@c"..shownumber.."@W|@c"..showword.."@W|@w")
-	end
+			hadarprint("@W|@c"..shownumber.."@W|@c"..showword.."@W|@w")
+		end
 
-	hadarprint("@W+@x086------------------------------------------------@W+@w")
-end
+		hadarprint("@W+@x086------------------------------------------------@W+@w")
+	end
 end
 
 function HadarHelp()
