@@ -11,7 +11,7 @@
    save_state="y"
    date_written="2021-12-31 00:00:00"
    requires="4.00"
-   version="0.48"
+   version="0.49"
    >
 
 </plugin>
@@ -607,7 +607,7 @@ function HSPmain(name, line, wc)
 	elseif first == "help" then
 		HadarHelp(rest)
 	else
-		HadarHelp()
+		HadarHelp("nadda")
 	end
 
 end
@@ -1578,15 +1578,17 @@ function hspsetwraith(str)
 	end
 end
 
-function extrahelp(str)
-
-end
-
 function HadarHelp(str)
-	local arg, rest = str:match("([0-9.a-zA-Z]*)%s*(.*)")
-	arg = tonumber(arg) or string.lower(arg)
+	local arg, rest
+	
+	if str == nil or str == "" or str == " " then
+		arg="nothing"
+	else
+		arg, rest = str:match("([0-9.a-zA-Z]*)%s*(.*)")
+		arg = tonumber(arg) or string.lower(arg)
+	end
 
-	if first == "combat" then
+	if arg == "combat" then
 		hadarprint("@x086+-------------------------[Combat Help Files]--------------------------+@w")
 		hadarprint("@x086| hsp combat     - no argument shows a table with the spell number and |")
 		hadarprint("@x086|                  the spell name, these will be re-cast during combat |")
@@ -1594,7 +1596,7 @@ function HadarHelp(str)
 		hadarprint("@x086| hsp combat <skill number>  - will add or remove the skill from the   |")
 		hadarprint("@x086|                              list to recast in combat                |")
 		hadarprint("@x086+----------------------------------------------------------------------+@w")
-	elseif first == "timer" then
+	elseif arg == "timer" then
 		hadarprint("@x086+-------------------------[Timers Help Files]--------------------------+@w")
 		hadarprint("@x086| hsp timer     - no argument shows a table with the spell number and  |")
 		hadarprint("@x086|                 the spell name, along with what timers are active    |")
@@ -1612,7 +1614,7 @@ function HadarHelp(str)
 		hadarprint("@x086| 	                   EG: hsp timer set 71 30                          |")
 		hadarprint("@x086| 	         will toggle the 30 second timer to on or off               |")
 		hadarprint("@x086+----------------------------------------------------------------------+@w")
-	elseif first == "wraith" then
+	elseif arg == "wraith" then
 		hadarprint("@x086+-------------------------[Wraith Help Files]--------------------------+@w")
 		hadarprint("@x086| hsp wraith     - no argument shows a table with the spell number and |")
 		hadarprint("@x086|                  the spell name, these will be cast before the spell |")
@@ -1646,11 +1648,11 @@ function HadarHelp(str)
 		hadarprint("@x086| @x214hsp totem <spell>       @x110- @x214spell is either guidance or focus to recast@x086|@w")
 		hadarprint("@x086| @x208hsp elementalfocus <ele>@x110- @x208change the element for elemental focus     @x086|@w")
 		hadarprint("@x086| @x214hsp elementalward <ele> @x110- @x214change the element for elemental ward      @x086|@w")
-		hadarprint("@x086| @x208hsp gaiasfocus <element>@x110- @x208change the element for recast@x086|@w")
+		hadarprint("@x086| @x208hsp gaiasfocus <element>@x110- @x208change the element for recast 	            @x086|@w")
 		hadarprint("@x086+-------------------------@g[@CE@cxtra @CH@celp @CF@ciles@W:@g]@x086--------------------------+@w")
-		hadarprint("@x086|                            @x214hsp help combat                           @x086|")
-		hadarprint("@x086|                            @x208hsp help timer                            @x086|")
-		hadarprint("@x086|                            @x214hsp help wraith                           @x086|")
+		hadarprint("@x086|                           @x214hsp help combat                            @x086|")
+		hadarprint("@x086|                           @x208hsp help timer                             @x086|")
+		hadarprint("@x086|                           @x214hsp help wraith                            @x086|")
 		hadarprint("@x086+----------------------------------------------------------------------+@w")
 	end
 end
