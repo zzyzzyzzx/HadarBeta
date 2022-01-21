@@ -11,7 +11,7 @@
    save_state="y"
    date_written="2021-12-31 00:00:00"
    requires="4.00"
-   version="0.49"
+   version="0.50"
    >
 
 </plugin>
@@ -255,7 +255,12 @@ Saori, tester
 
 TODO:
 
-I think this is it for now?
+recovery ending timers
+gaias focus cant be reset to random
+
+Xyzzy tells you 'ok, two things of note with spellup... 
+first, power projection has a cooldown, so the recast should key off that rather than the spell wearing off...
+second, petrify shouldn't get recast as a spellup spell as it's a combat thing.'
 ]]
 
 function hadarprint(str,level)
@@ -473,8 +478,12 @@ function injectVars()
 	v["EX"]["thirtytimer"] = {}
 	v["EX"]["tentimer"] = {}
 	v["EX"]["wraithform"] = {}
+	v["EX"]["cooldown"] = {}
 	
 	v["RT"]["reverse"] = {}
+	v["RT"]["allrecoveries"] = {}
+	v["RT"]["affectedrecovery"] = {}
+	
 	
 	
 	v["MS"]["logo"] = "@G[@CS@cpellup@G]@c"
@@ -533,6 +542,10 @@ function SlistUpdate(name, line, wildcards)
 		Spellups["AS"]["spells"][sn] = nm
 	elseif ty == 2 then
 		Spellups["AS"]["skills"][sn] = nm
+	end
+
+	if rc ~= -1 then
+		Spellups["RT"]["allrecoveries"][rc] = {skillnum = sn, name = nm, duration = du, type = ty, target = tg}
 	end
 	
 	if rc ~= -1 and pc > 1 then
@@ -678,24 +691,6 @@ function affoff(name,line,wc)
 		Spellups["QS"][sn] = Spellups["AS"]["list"][sn]["name"]
 	end
 
-	--[[
-| You enter the borders of the realm of undeath.
-| Prepare for the transformation..........
-| Adding Wraith Resistance ...
-| Enhancing Attributes........
-| Adding Sanctuary............71
-| Adding Detect Magic.........178/35
-| Adding Detect Hidden........178/33
-| Adding Detect Evil..........178/31
-| Adding Detect Good..........178/32
-| Adding Pass Door............64
-| Adding Invisibility.........58
-| Adding Hide.................306
-| Adding Haste................53
-| Transformation Complete.
-Spellups["EX"]["wraithform"]
-]]
-
 	if sn == 180 then
 		for i,v in pairs(Spellups["EX"]["wraithform"]) do
 
@@ -710,6 +705,9 @@ Spellups["EX"]["wraithform"]
 	end
 
 	if sn == 552 then
+		if Spellups["CG"]["gaiasfocus"] == 0 then
+			goto pastsncheckGF
+		end
 		if table.find(518,Spellups["AF"]["list"]) then
 			--left empty becaue
 		else
@@ -719,7 +717,7 @@ Spellups["EX"]["wraithform"]
 			cast_this(518,ctype)
 		end
 	end
-
+	::pastsncheckGF::
 	if sn == 518 then
 		if table.find(552,Spellups["AF"]["list"]) then
 			--left empty becaue
@@ -727,6 +725,11 @@ Spellups["EX"]["wraithform"]
 			local ctype = tonumber(Spellups["AS"]["list"][552]["type"])
 			cast_this(552,ctype)
 		end
+	end
+
+	if table.find(Spellups["AS"]["list"][sn]["recovery"],Spellups["RT"]["affectedrecovery"]) ~= nil then
+		hadarprint("affected by recovery:"..Spellups["AS"]["list"][sn]["name"].." not recasting","debug")
+		return
 	end
 	
 	if Spellups["AS"]["list"][sn]["target"] == 2 or Spellups["AS"]["list"][sn]["target"] == 3 or sn == Spellups["EX"]["clanskill"] then
@@ -849,7 +852,7 @@ function cast_this(sn,ctype)
 		if Spellups["CG"]["gaiasfocus"] == 0 then
 			castline = "cast '"..Spellups["AS"]["list"][sn]["name"]
 		else
-			castline = "cast '"..Spellups["AS"]["list"][sn]["name"].." "..Spellups["CG"]["gaiasfocus"]
+			castline = "cast '"..Spellups["AS"]["list"][sn]["name"].."' "..Spellups["CG"]["gaiasfocus"]
 		end
 	elseif sn == 526 then
 		castline = "cast '"..Spellups["AS"]["list"][sn]["name"].."' "..Spellups["CG"]["elementfocus"]
@@ -1144,6 +1147,7 @@ function recon(n,l,wc)
 	local sn = tonumber(wc.sn)
 	local tm = tonumber(wc.timer)
 	
+	Spellups["RT"]["affectedrecovery"][sn] = tm
 	hadarprint("Recovery on:"..Spellups["RT"][sn]["name"].." For:"..tm,"debug")
 end
 
@@ -1152,6 +1156,7 @@ function recoff(n,l,wc)
 	local skillnum = Spellups["RT"][sn]["skillnum"]
 	local skilltype = Spellups["RT"][sn]["type"]
 	local skillname = Spellups["RT"][sn]["name"]
+	Spellups["RT"]["affectedrecovery"][sn] = nil
 
 	if sn == 16 then
 		if Spellups["CG"]["totemcast"] == "force" then
@@ -1170,10 +1175,16 @@ function recoff(n,l,wc)
 			hadarprint("Autocasting totem guidance or totem focus not set")
 		end
 	else
-		Spellups["QS"][skillnum] = Spellups["AS"]["list"][skillnum]["name"]
-		hadarprint("adding to queue (recovery off): "..Spellups["AS"]["list"][skillnum]["name"],"debug")
-	
-		cast_spells()
+		if contains(Spellups["AS"]["attack"],skillnum) then
+			--is attack spell dont attempt to recast
+		else
+			hadarprint("recasting:"..skillname,"debug")
+
+			Spellups["QS"][skillnum] = Spellups["AS"]["list"][skillnum]["name"]
+			hadarprint("adding to queue (recovery off): "..Spellups["AS"]["list"][skillnum]["name"],"debug")
+			
+			cast_spells()
+		end
 	end --end elemental focus recoverynumber
 						
 end
@@ -1367,11 +1378,16 @@ function hspsetgaiasfocus(str)
 	local arg, rest = str:match("([0-9.a-zA-Z]*)%s*(.*)")
 	arg = string.lower(arg)
 
+	if arg == "random" then
+		Spellups["CG"]["gaiasfocus"] = 0
+		hadarprint("Gaia's @Cfocus@c set to: @GRandom","script")
+		return
+	end
 	if arg == "earth" or arg == "air" or arg == "cold" or arg == "water" or arg == "electric" then
 		Spellups["CG"]["gaiasfocus"] = arg
 		hadarprint("Gaia's @Cfocus@c set to: @G"..Spellups["CG"]["gaiasfocus"],"script")
 	else
-		hadarprint("You need to enter which element you want to cast @CEarth@c, @CAir@c, @CCold@c, @CWater@c, @CElectric @C... @GEG hsp elementalward fire@w","script")
+		hadarprint("You need to enter which element you want to cast @CEarth@c, @CAir@c, @CCold@c, @CWater@c, @CElectric@c, @CRandom @C... @GEG hsp elementalward fire@w","script")
 	end
 end
 
