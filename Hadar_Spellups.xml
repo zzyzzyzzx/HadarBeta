@@ -11,7 +11,7 @@
    save_state="y"
    date_written="2021-12-31 00:00:00"
    requires="4.00"
-   version="0.50"
+   version="0.51"
    >
 
 </plugin>
@@ -255,12 +255,7 @@ Saori, tester
 
 TODO:
 
-recovery ending timers
-gaias focus cant be reset to random
 
-Xyzzy tells you 'ok, two things of note with spellup... 
-first, power projection has a cooldown, so the recast should key off that rather than the spell wearing off...
-second, petrify shouldn't get recast as a spellup spell as it's a combat thing.'
 ]]
 
 function hadarprint(str,level)
@@ -713,8 +708,13 @@ function affoff(name,line,wc)
 		else
 			local ctypefocus = tonumber(Spellups["AS"]["list"][552]["type"])
 			local ctyperevenge = tonumber(Spellups["AS"]["list"][518]["type"])
-			cast_this(552,ctype)
-			cast_this(518,ctype)
+			if currentState == 8 then
+				Spellups["QS"][552] = Spellups["AS"]["list"][552]["name"]
+				Spellups["QS"][518] = Spellups["AS"]["list"][518]["name"]
+			else
+				cast_this(552,ctype)
+				cast_this(518,ctype)
+			end
 		end
 	end
 	::pastsncheckGF::
@@ -722,8 +722,12 @@ function affoff(name,line,wc)
 		if table.find(552,Spellups["AF"]["list"]) then
 			--left empty becaue
 		else
-			local ctype = tonumber(Spellups["AS"]["list"][552]["type"])
-			cast_this(552,ctype)
+			if currentState == 8 then
+				Spellups["QS"][sn] = Spellups["AS"]["list"][sn]["name"]
+			else
+				local ctype = tonumber(Spellups["AS"]["list"][552]["type"])
+				cast_this(552,ctype)
+			end
 		end
 	end
 
@@ -830,6 +834,15 @@ function cast_spells()
 			end
 		elseif currentState == 3 then
 			if contains(Spellups["EX"]["noAuto"],i) == false then
+
+				if sn == 518 then
+					if contains(Spellups["QS"],552) then
+						cast_this(552,Spellups["AS"]["list"][552]["type"])
+						cast_this(518,Spellups["AS"]["list"][518]["type"])
+						break
+					end
+				end
+
 				if Spellups["AS"]["list"][i]["prac"] > 1 or i == Spellups["EX"]["clanskill"] then 
 					cast_this(i,ctype)
 				else
