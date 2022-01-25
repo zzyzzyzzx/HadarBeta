@@ -11,7 +11,7 @@
    save_state="y"
    date_written="2021-12-31 00:00:00"
    requires="4.00"
-   version="0.51"
+   version="0.52"
    >
 
 </plugin>
@@ -242,6 +242,8 @@ TelnetOptionOn(TELOPT_SPELLUP) -- fiendish recommends this way to enable the spe
 TelnetOptionOn(20)
 TelnetOptionOn(TELOPT_SKILLGAINS)
 local currentState = -1 -- uninitialized
+local maxmana = -1 -- uninitialized
+local currentmana = -1 -- uninitialized
 local slistCommandSent = false
 
 --[[
@@ -287,8 +289,8 @@ function interp(s, tab)
 end
 
 function OnPluginBroadcast(msg, id, name, text)
-     if id == "3e7dedbe37e44942dd46d264" then -- message from the GMCP Handler
-          if (text == "char.status") then
+	if id == "3e7dedbe37e44942dd46d264" then -- message from the GMCP Handler
+		if (text == "char.status") then
 
                res, gmcparg = CallPlugin("3e7dedbe37e44942dd46d264","gmcpval","char")
                luastmt = "gmcpdata = " .. gmcparg
@@ -303,12 +305,25 @@ function OnPluginBroadcast(msg, id, name, text)
 				if Spellups["GL"]["aurabag"] ~= 0 then
 					SendNoEcho("put "..Spellups["GL"]["auranumber"].." "..Spellups["GL"]["aurabag"])
 				end
-			end	
-			
-			
+			end		
 			cast_spells()
 			SendSlistCommand()
 		end	
+		if (text == "char.vitals") then
+			res, gmcparg = CallPlugin("3e7dedbe37e44942dd46d264","gmcpval","char")
+            luastmt = "gmcpdata = " .. gmcparg
+            assert (loadstring (luastmt or "")) ()
+			
+			currentmana = tonumber(gmcpval("vitals.mana"))
+		end
+		if (text == "char.maxstats") then
+			res, gmcparg = CallPlugin("3e7dedbe37e44942dd46d264","gmcpval","char")
+            luastmt = "gmcpdata = " .. gmcparg
+            assert (loadstring (luastmt or "")) ()
+			
+			maxmana = tonumber(gmcpval("maxstats.maxmana"))
+			Spellups["EX"]["percentageStop"] = (maxmana*Spellups["EX"]["percentage"]/100)
+		end
 	end --end if char status
 end
 
@@ -356,6 +371,8 @@ function OnPluginEnable ()
 	
 	charstatus = gmcp("char.status") -- fetch char.status and return it as a Lua table
     currentState = tonumber(charstatus.state)
+	maxmana = tonumber(gmcp("char.maxstats.maxmana"))
+	currentmana = tonumber(gmcp("char.vitals.mana"))
 	
 	Spellups["GL"]["clan"] = gmcp("char.base.clan") -- fetch char.base and return it as a Lua table
 	 
@@ -373,6 +390,8 @@ function OnPluginEnable ()
 	
 	injectVars()
 	SendSlistCommand()
+
+	Spellups["EX"]["percentageStop"] = (maxmana*Spellups["EX"]["percentage"]/100)
 end
 
 function buildInitial()
@@ -474,6 +493,8 @@ function injectVars()
 	v["EX"]["tentimer"] = {}
 	v["EX"]["wraithform"] = {}
 	v["EX"]["cooldown"] = {}
+	v["EX"]["percentage"] = 0
+	v["EX"]["percentageStop"] = 0
 	
 	v["RT"]["reverse"] = {}
 	v["RT"]["allrecoveries"] = {}
@@ -614,6 +635,8 @@ function HSPmain(name, line, wc)
 		hspsetgaiasfocus(rest)
 	elseif first == "help" then
 		HadarHelp(rest)
+	elseif first == "percent" then
+		hspsetpercent(rest)
 	else
 		HadarHelp("nadda")
 	end
@@ -794,6 +817,10 @@ function sfail(name,line,wc)
 		return
 	end
 
+	if fl == 4 then
+		Spellups["QS"][sn] = Spellups["AS"]["list"][sn]["name"]
+	end
+
     if fl == 3 then 
         Spellups["QS"][sn] = nil
         return
@@ -821,6 +848,10 @@ end
 
 function cast_spells()
 	if Spellups["GL"]["disabled"] == "yes" then
+		return
+	end
+
+	if Spellups["EX"]["percentageStop"] >= currentmana then
 		return
 	end
 	
@@ -1607,6 +1638,17 @@ function hspsetwraith(str)
 	end
 end
 
+function hspsetpercent(str)
+	local arg, rest = str:match("([0-9.a-zA-Z]*)%s*(.*)")
+	arg = tonumber(arg) or string.lower(arg)
+
+	if type(arg) == "number" then
+		Spellups["EX"]["percentage"] = arg
+		Spellups["EX"]["percentageStop"] = (maxmana*Spellups["EX"]["percentage"]/100)
+		hadarprint("Set autocast pause to @G"..Spellups["EX"]["percentage"].."@c% which is "..Spellups["EX"]["percentageStop"].." mana","script")
+	end
+end
+
 function HadarHelp(str)
 	local arg, rest
 	
@@ -1678,6 +1720,7 @@ function HadarHelp(str)
 		hadarprint("@x086| @x208hsp elementalfocus <ele>@x110- @x208change the element for elemental focus     @x086|@w")
 		hadarprint("@x086| @x214hsp elementalward <ele> @x110- @x214change the element for elemental ward      @x086|@w")
 		hadarprint("@x086| @x208hsp gaiasfocus <element>@x110- @x208change the element for recast 	            @x086|@w")
+		hadarprint("@x086| @x214hsp percent <number>    @x110- @x214Sets mana percentage to stop auto casting  @x086|@w")
 		hadarprint("@x086+-------------------------@g[@CE@cxtra @CH@celp @CF@ciles@W:@g]@x086--------------------------+@w")
 		hadarprint("@x086|                           @x214hsp help combat                            @x086|")
 		hadarprint("@x086|                           @x208hsp help timer                             @x086|")
